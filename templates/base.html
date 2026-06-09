@@ -1,0 +1,143 @@
+<!DOCTYPE html>
+<html lang="en" class="{{ 'dark-mode' if current_user.is_authenticated and current_user.dark_mode else '' }}">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>{% block title %}Serenia Media{% endblock %}</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Yeseva+One&family=Jost:wght@300;400;500;600&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.0/css/all.min.css">
+    <link rel="stylesheet" href="{{ url_for('static', filename='css/main.css') }}">
+    {% block extra_css %}{% endblock %}
+</head>
+<body>
+    {% if current_user.is_authenticated %}
+    <!-- Sidebar -->
+    <nav class="sidebar" id="sidebar">
+        <div class="sidebar-logo">
+            <a href="{{ url_for('main.dashboard') }}" class="logo-link">
+                <div class="logo-icon"><i class="fa-solid fa-cloud"></i></div>
+                <span class="logo-text">Serenia</span>
+            </a>
+            <button class="sidebar-toggle" id="sidebarToggle"><i class="fa-solid fa-bars"></i></button>
+        </div>
+
+        <div class="sidebar-user">
+            <div class="user-avatar">{{ current_user.username[0].upper() }}</div>
+            <div class="user-info">
+                <div class="user-name">{{ current_user.username }}</div>
+                <div class="user-storage">
+                    <div class="storage-bar">
+                        <div class="storage-fill" style="width: {{ current_user.storage_percent() }}%"></div>
+                    </div>
+                    <span class="storage-text">{{ current_user.storage_used|human_size }} / {{ current_user.storage_limit|human_size }}</span>
+                </div>
+            </div>
+        </div>
+
+        <ul class="sidebar-nav">
+            <li><a href="{{ url_for('main.dashboard') }}" class="{{ 'active' if request.endpoint == 'main.dashboard' }}">
+                <i class="fa-solid fa-house"></i><span>Dashboard</span>
+            </a></li>
+            <li><a href="{{ url_for('files.upload') }}" class="{{ 'active' if request.endpoint == 'files.upload' }}">
+                <i class="fa-solid fa-upload"></i><span>Upload</span>
+            </a></li>
+            <li><a href="{{ url_for('files.list_files') }}" class="{{ 'active' if request.endpoint == 'files.list_files' }}">
+                <i class="fa-solid fa-folder"></i><span>My Files</span>
+            </a></li>
+            <li><a href="{{ url_for('files.my_shares') }}" class="{{ 'active' if request.endpoint == 'files.my_shares' }}">
+                <i class="fa-solid fa-share-nodes"></i><span>Shared</span>
+            </a></li>
+            <li><a href="{{ url_for('main.favorites') }}" class="{{ 'active' if request.endpoint == 'main.favorites' }}">
+                <i class="fa-solid fa-star"></i><span>Favorites</span>
+            </a></li>
+            <li><a href="{{ url_for('main.snippets') }}" class="{{ 'active' if request.endpoint == 'main.snippets' }}">
+                <i class="fa-solid fa-code"></i><span>Snippets</span>
+            </a></li>
+            <li><a href="{{ url_for('main.search') }}" class="{{ 'active' if request.endpoint == 'main.search' }}">
+                <i class="fa-solid fa-magnifying-glass"></i><span>Search</span>
+            </a></li>
+            <li><a href="{{ url_for('main.activity') }}" class="{{ 'active' if request.endpoint == 'main.activity' }}">
+                <i class="fa-solid fa-clock-rotate-left"></i><span>Activity</span>
+            </a></li>
+            {% if current_user.is_admin %}
+            <li class="nav-divider"></li>
+            <li><a href="{{ url_for('admin.dashboard') }}" class="{{ 'active' if 'admin' in request.endpoint }}">
+                <i class="fa-solid fa-shield-halved"></i><span>Admin</span>
+            </a></li>
+            {% endif %}
+        </ul>
+
+        <div class="sidebar-footer">
+            <a href="{{ url_for('auth.profile') }}"><i class="fa-solid fa-gear"></i><span>Settings</span></a>
+            <a href="{{ url_for('auth.logout') }}"><i class="fa-solid fa-right-from-bracket"></i><span>Logout</span></a>
+        </div>
+    </nav>
+
+    <!-- Main content -->
+    <div class="main-wrapper" id="mainWrapper">
+        <header class="topbar">
+            <button class="mobile-toggle" id="mobileToggle"><i class="fa-solid fa-bars"></i></button>
+            <div class="topbar-search">
+                <form action="{{ url_for('main.search') }}" method="get">
+                    <i class="fa-solid fa-magnifying-glass"></i>
+                    <input type="text" name="q" placeholder="Search files..." value="{{ request.args.get('q','') }}">
+                </form>
+            </div>
+            <div class="topbar-actions">
+                <button class="btn-icon" id="darkModeToggle" title="Toggle dark mode">
+                    <i class="fa-solid {{ 'fa-sun' if current_user.dark_mode else 'fa-moon' }}"></i>
+                </button>
+                <a href="{{ url_for('files.upload') }}" class="btn-primary btn-sm">
+                    <i class="fa-solid fa-plus"></i> Upload
+                </a>
+            </div>
+        </header>
+
+        <main class="content-area">
+            {% with messages = get_flashed_messages(with_categories=true) %}
+            {% if messages %}
+            <div class="flash-container" id="flashContainer">
+                {% for category, message in messages %}
+                <div class="flash flash-{{ category }}">
+                    <i class="fa-solid {{ 'fa-circle-check' if category == 'success' else 'fa-circle-info' if category == 'info' else 'fa-circle-exclamation' }}"></i>
+                    <span>{{ message }}</span>
+                    <button onclick="this.parentElement.remove()"><i class="fa-solid fa-xmark"></i></button>
+                </div>
+                {% endfor %}
+            </div>
+            {% endif %}
+            {% endwith %}
+
+            {% block content %}{% endblock %}
+        </main>
+    </div>
+
+    {% else %}
+    <!-- Public layout -->
+    <div class="public-layout">
+        {% with messages = get_flashed_messages(with_categories=true) %}
+        {% if messages %}
+        <div class="flash-container" id="flashContainer">
+            {% for category, message in messages %}
+            <div class="flash flash-{{ category }}">
+                <i class="fa-solid {{ 'fa-circle-check' if category == 'success' else 'fa-circle-info' if category == 'info' else 'fa-circle-exclamation' }}"></i>
+                <span>{{ message }}</span>
+                <button onclick="this.parentElement.remove()"><i class="fa-solid fa-xmark"></i></button>
+            </div>
+            {% endfor %}
+        </div>
+        {% endif %}
+        {% endwith %}
+        {% block content %}{% endblock %}
+    </div>
+    {% endif %}
+
+    <!-- Notification toast -->
+    <div class="toast-container" id="toastContainer"></div>
+
+    <script src="{{ url_for('static', filename='js/main.js') }}"></script>
+    {% block extra_js %}{% endblock %}
+</body>
+</html>

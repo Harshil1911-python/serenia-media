@@ -1,0 +1,141 @@
+{% extends "base.html" %}
+{% block title %}Admin — Serenia Media{% endblock %}
+{% block content %}
+<div class="page-header">
+    <h1><i class="fa-solid fa-shield-halved"></i> Admin Panel</h1>
+</div>
+
+<div class="stats-grid">
+    <div class="stat-card"><div class="stat-icon blue"><i class="fa-solid fa-users"></i></div><div class="stat-info"><div class="stat-value">{{ users }}</div><div class="stat-label">Total Users</div></div></div>
+    <div class="stat-card"><div class="stat-icon sky"><i class="fa-solid fa-folder"></i></div><div class="stat-info"><div class="stat-value">{{ total_files }}</div><div class="stat-label">Active Files</div></div></div>
+    <div class="stat-card"><div class="stat-icon teal"><i class="fa-solid fa-hard-drive"></i></div><div class="stat-info"><div class="stat-value">{{ total_storage|human_size }}</div><div class="stat-label">Storage Used</div></div></div>
+    <div class="stat-card"><div class="stat-icon indigo"><i class="fa-solid fa-trash"></i></div><div class="stat-info"><div class="stat-value">{{ deleted_files }}</div><div class="stat-label">Deleted Files</div></div></div>
+</div>
+
+<!-- Type breakdown -->
+<div class="card">
+    <div class="card-header"><h3>Storage by Type</h3></div>
+    <div class="card-body">
+        <div class="type-bars">
+        {% for type, count, size in type_stats %}
+        <div class="type-bar-row">
+            <div class="type-label">{{ type or 'other' }}</div>
+            <div class="type-bar"><div class="type-bar-fill" style="width:{{ [count*10,100]|min }}%"></div></div>
+            <div class="type-count">{{ count }} files · {{ (size or 0)|human_size }}</div>
+        </div>
+        {% endfor %}
+        </div>
+    </div>
+</div>
+
+<!-- Storage Controls -->
+<div class="card danger-zone-card">
+    <div class="card-header"><h3><i class="fa-solid fa-broom"></i> Storage Controls</h3></div>
+    <div class="card-body admin-controls">
+        <div class="admin-control-item">
+            <div>
+                <h4>Clean Storage</h4>
+                <p>Remove deleted files, expired share links, and temp files.</p>
+            </div>
+            <button class="btn-outline" onclick="cleanStorage()"><i class="fa-solid fa-broom"></i> Clean Storage</button>
+        </div>
+        <div class="admin-control-item danger">
+            <div>
+                <h4>Delete All Media</h4>
+                <p>Permanently delete ALL uploaded files. This cannot be undone.</p>
+            </div>
+            <button class="btn-danger" onclick="deleteAllMedia()"><i class="fa-solid fa-triangle-exclamation"></i> Delete All Media</button>
+        </div>
+    </div>
+</div>
+
+<div class="admin-grid">
+    <div class="card">
+        <div class="card-header"><h3>Recent Users</h3><a href="{{ url_for('admin.users') }}" class="link-muted">View all</a></div>
+        <div class="card-body">
+            <ul class="compact-list">
+                {% for u in recent_users %}
+                <li class="compact-item">
+                    <div class="user-avatar-sm">{{ u.username[0].upper() }}</div>
+                    <div><div class="compact-name">{{ u.username }}</div><div class="compact-meta">{{ u.email }} · {{ u.created_at|timeago }}</div></div>
+                    {% if u.is_admin %}<span class="badge badge-primary">Admin</span>{% endif %}
+                </li>
+                {% endfor %}
+            </ul>
+        </div>
+    </div>
+    <div class="card">
+        <div class="card-header"><h3>Recent Files</h3><a href="{{ url_for('admin.files') }}" class="link-muted">View all</a></div>
+        <div class="card-body">
+            <ul class="compact-list">
+                {% for f in recent_files %}
+                <li class="compact-item">
+                    <div class="file-icon file-{{ f.file_type }}"><i class="fa-solid {{ f.icon_class() }}"></i></div>
+                    <div><div class="compact-name">{{ f.original_filename }}</div><div class="compact-meta">{{ f.size_human() }} · {{ f.created_at|timeago }}</div></div>
+                </li>
+                {% endfor %}
+            </ul>
+        </div>
+    </div>
+</div>
+
+<!-- Confirm modal -->
+<div class="modal" id="confirmModal">
+    <div class="modal-backdrop"></div>
+    <div class="modal-content">
+        <div class="modal-header"><h3 id="confirmTitle">Confirm</h3></div>
+        <div class="modal-body">
+            <p id="confirmMsg"></p>
+            <div id="confirmInput"></div>
+            <div class="modal-actions">
+                <button class="btn-outline" onclick="closeModal('confirmModal')">Cancel</button>
+                <button class="btn-danger" id="confirmBtn">Confirm</button>
+            </div>
+        </div>
+    </div>
+</div>
+
+<div id="cleanResult" class="alert" style="display:none"></div>
+{% endblock %}
+{% block extra_js %}
+<script>
+async function cleanStorage() {
+    document.getElementById('confirmTitle').textContent = 'Clean Storage';
+    document.getElementById('confirmMsg').textContent = 'This will remove all soft-deleted files and expired share links. Continue?';
+    document.getElementById('confirmInput').innerHTML = '';
+    document.getElementById('confirmModal').classList.add('open');
+    document.getElementById('confirmBtn').onclick = async () => {
+        closeModal('confirmModal');
+        const r = await fetch('{{ url_for("admin.clean_storage") }}', {method:'POST'});
+        const data = await r.json();
+        if (data.ok) {
+            showToast(`Cleaned! Freed ${humanSize(data.freed)}, removed ${data.deleted_files} files and ${data.removed_shares} shares.`, 'success');
+        }
+    };
+}
+
+async function deleteAllMedia() {
+    document.getElementById('confirmTitle').textContent = '⚠️ Delete ALL Media';
+    document.getElementById('confirmMsg').textContent = 'This will permanently delete ALL files from all users. Type "DELETE ALL MEDIA" to confirm.';
+    document.getElementById('confirmInput').innerHTML = '<input type="text" id="deleteConfirmInput" placeholder="DELETE ALL MEDIA" class="danger-input">';
+    document.getElementById('confirmModal').classList.add('open');
+    document.getElementById('confirmBtn').onclick = async () => {
+        const val = document.getElementById('deleteConfirmInput').value;
+        if (val !== 'DELETE ALL MEDIA') { showToast('Incorrect confirmation text', 'error'); return; }
+        closeModal('confirmModal');
+        const r = await fetch('{{ url_for("admin.delete_all_media") }}', {
+            method:'POST', headers:{'Content-Type':'application/json'},
+            body: JSON.stringify({confirm:'DELETE ALL MEDIA'})
+        });
+        const data = await r.json();
+        if (data.ok) showToast(`Deleted ${data.deleted} files.`, 'success');
+        else showToast(data.error, 'error');
+    };
+}
+
+function humanSize(b) {
+    if(b<1024)return b+' B'; if(b<1048576)return (b/1024).toFixed(1)+' KB';
+    if(b<1073741824)return (b/1048576).toFixed(1)+' MB'; return (b/1073741824).toFixed(1)+' GB';
+}
+</script>
+{% endblock %}

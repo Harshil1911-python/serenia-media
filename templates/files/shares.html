@@ -1,0 +1,71 @@
+{% extends "base.html" %}
+{% block title %}My Shares — Serenia Media{% endblock %}
+{% block content %}
+<div class="page-header">
+    <h1>Shared Links</h1>
+</div>
+
+{% if shares %}
+<div class="table-wrapper">
+    <table class="data-table">
+        <thead>
+            <tr>
+                <th>File</th>
+                <th>Created</th>
+                <th>Expires</th>
+                <th>Accesses</th>
+                <th>Status</th>
+                <th>Actions</th>
+            </tr>
+        </thead>
+        <tbody>
+            {% for share in shares %}
+            <tr class="{{ 'row-expired' if share.is_expired() }}">
+                <td>
+                    <div class="file-row-compact">
+                        <div class="file-icon file-{{ share.file.file_type }}"><i class="fa-solid {{ share.file.icon_class() }}"></i></div>
+                        <span>{{ share.file.original_filename }}</span>
+                    </div>
+                </td>
+                <td>{{ share.created_at|timeago }}</td>
+                <td>{{ share.expires_at.strftime('%b %d, %Y') if share.expires_at else '—' }}</td>
+                <td>{{ share.access_count }}</td>
+                <td>
+                    {% if share.is_expired() %}
+                    <span class="badge badge-error">Expired</span>
+                    {% else %}
+                    <span class="badge badge-success">Active</span>
+                    {% endif %}
+                </td>
+                <td>
+                    <div class="action-row">
+                        <button class="btn-icon-sm" onclick="copyLink('{{ url_for('files.shared_file', token=share.token, _external=True) }}')" title="Copy Link"><i class="fa-solid fa-copy"></i></button>
+                        <a href="{{ url_for('files.share_qr', token=share.token) }}" target="_blank" class="btn-icon-sm" title="QR Code"><i class="fa-solid fa-qrcode"></i></a>
+                        <a href="{{ url_for('files.shared_file', token=share.token) }}" target="_blank" class="btn-icon-sm" title="Preview"><i class="fa-solid fa-eye"></i></a>
+                        <button class="btn-icon-sm btn-danger-hover" onclick="deleteShare({{ share.id }}, this)" title="Delete"><i class="fa-solid fa-trash"></i></button>
+                    </div>
+                </td>
+            </tr>
+            {% endfor %}
+        </tbody>
+    </table>
+</div>
+{% else %}
+<div class="empty-state">
+    <i class="fa-solid fa-share-nodes"></i>
+    <h3>No shared links</h3>
+    <p>Share a file to generate a shareable link.</p>
+    <a href="{{ url_for('files.list_files') }}" class="btn-primary">Browse Files</a>
+</div>
+{% endif %}
+{% endblock %}
+{% block extra_js %}
+<script>
+function copyLink(url) { navigator.clipboard.writeText(url); showToast('Link copied!', 'success'); }
+async function deleteShare(id, btn) {
+    if (!confirm('Delete this share link?')) return;
+    const r = await fetch(`/shares/${id}/delete`, {method:'POST'});
+    if ((await r.json()).ok) { btn.closest('tr').remove(); showToast('Share deleted', 'success'); }
+}
+</script>
+{% endblock %}

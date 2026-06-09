@@ -1,0 +1,72 @@
+{% extends "base.html" %}
+{% block title %}Search — Serenia Media{% endblock %}
+{% block content %}
+<div class="page-header">
+    <h1>Search</h1>
+</div>
+<div class="search-page">
+    <form class="search-form" method="get">
+        <div class="search-input-lg">
+            <i class="fa-solid fa-magnifying-glass"></i>
+            <input type="text" name="q" value="{{ q }}" placeholder="Search files, tags, descriptions…" autofocus>
+            <button type="submit" class="btn-primary">Search</button>
+        </div>
+        <div class="search-filters">
+            <select name="type">
+                <option value="" {{ 'selected' if not file_type }}>All Types</option>
+                <option value="image" {{ 'selected' if file_type=='image' }}>Images</option>
+                <option value="video" {{ 'selected' if file_type=='video' }}>Videos</option>
+                <option value="audio" {{ 'selected' if file_type=='audio' }}>Audio</option>
+                <option value="document" {{ 'selected' if file_type=='document' }}>Documents</option>
+                <option value="archive" {{ 'selected' if file_type=='archive' }}>Archives</option>
+                <option value="text" {{ 'selected' if file_type=='text' }}>Text</option>
+            </select>
+            <select name="sort">
+                <option value="date" {{ 'selected' if sort=='date' }}>Newest</option>
+                <option value="name" {{ 'selected' if sort=='name' }}>Name</option>
+                <option value="size" {{ 'selected' if sort=='size' }}>Size</option>
+            </select>
+        </div>
+    </form>
+
+    {% if q %}
+    <p class="search-count">{{ files.total }} result{{ 's' if files.total != 1 }} for "<strong>{{ q }}</strong>"</p>
+    {% endif %}
+
+    {% if files.items %}
+    <div class="files-grid">
+        {% for f in files.items %}
+        <div class="file-card">
+            <a href="{{ url_for('files.file_detail', file_id=f.id) }}" class="file-card-preview file-{{ f.file_type }}">
+                {% if f.file_type == 'image' %}
+                <img src="{{ url_for('files.preview', file_id=f.id) }}" alt="{{ f.original_filename }}" loading="lazy" onerror="this.style.display='none'">
+                {% else %}
+                <div class="file-icon-large"><i class="fa-solid {{ f.icon_class() }}"></i></div>
+                {% endif %}
+            </a>
+            <div class="file-card-info">
+                <div class="file-card-name">{{ f.original_filename }}</div>
+                <div class="file-card-meta">{{ f.size_human() }} · {{ f.created_at|timeago }}</div>
+                {% if f.get_tags_list() %}
+                <div class="file-card-tags">{% for t in f.get_tags_list()[:3] %}<span class="tag-sm">{{ t }}</span>{% endfor %}</div>
+                {% endif %}
+            </div>
+        </div>
+        {% endfor %}
+    </div>
+    {% if files.pages > 1 %}
+    <div class="pagination">
+        {% if files.has_prev %}<a href="?q={{ q }}&type={{ file_type }}&sort={{ sort }}&page={{ files.prev_num }}" class="btn-outline btn-sm">← Prev</a>{% endif %}
+        <span class="page-info">Page {{ files.page }} of {{ files.pages }}</span>
+        {% if files.has_next %}<a href="?q={{ q }}&type={{ file_type }}&sort={{ sort }}&page={{ files.next_num }}" class="btn-outline btn-sm">Next →</a>{% endif %}
+    </div>
+    {% endif %}
+    {% elif q %}
+    <div class="empty-state">
+        <i class="fa-solid fa-magnifying-glass"></i>
+        <h3>No results found</h3>
+        <p>Try different keywords or remove filters.</p>
+    </div>
+    {% endif %}
+</div>
+{% endblock %}

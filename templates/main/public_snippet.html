@@ -1,0 +1,29 @@
+{% extends "base.html" %}
+{% block title %}{{ snip.title }} — Serenia Media{% endblock %}
+{% block content %}
+<div class="shared-page">
+    <div class="shared-header">
+        <a href="{{ url_for('main.index') }}" class="logo-link">
+            <div class="logo-icon"><i class="fa-solid fa-cloud"></i></div>
+            <span class="logo-text">Serenia Media</span>
+        </a>
+    </div>
+    <div class="snippet-public-card">
+        <div class="snippet-pub-header">
+            <h2>{{ snip.title }}</h2>
+            {% if snip.language %}<span class="badge badge-lang">{{ snip.language }}</span>{% endif %}
+        </div>
+        <pre class="snippet-pub-content" id="snipContent">{{ snip.content }}</pre>
+        <div class="snippet-pub-actions">
+            <button class="btn-primary" onclick="copyContent()"><i class="fa-solid fa-copy"></i> Copy</button>
+        </div>
+        <p class="snippet-pub-meta">{{ snip.view_count }} views · Shared via Serenia Media</p>
+    </div>
+</div>
+<script>
+function copyContent() {
+    navigator.clipboard.writeText(document.getElementById('snipContent').textContent);
+    showToast('Copied!', 'success');
+}
+</script>
+{% endblock %}

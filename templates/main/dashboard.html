@@ -1,0 +1,134 @@
+{% extends "base.html" %}
+{% block title %}Dashboard — Serenia Media{% endblock %}
+{% block content %}
+<div class="page-header">
+    <h1>Dashboard</h1>
+    <a href="{{ url_for('files.upload') }}" class="btn-primary"><i class="fa-solid fa-plus"></i> Upload Files</a>
+</div>
+
+<!-- Stats row -->
+<div class="stats-grid">
+    <div class="stat-card">
+        <div class="stat-icon blue"><i class="fa-solid fa-folder"></i></div>
+        <div class="stat-info">
+            <div class="stat-value">{{ total_files }}</div>
+            <div class="stat-label">Total Files</div>
+        </div>
+    </div>
+    <div class="stat-card">
+        <div class="stat-icon sky"><i class="fa-solid fa-share-nodes"></i></div>
+        <div class="stat-info">
+            <div class="stat-value">{{ total_shares }}</div>
+            <div class="stat-label">Shared Links</div>
+        </div>
+    </div>
+    <div class="stat-card">
+        <div class="stat-icon teal"><i class="fa-solid fa-hard-drive"></i></div>
+        <div class="stat-info">
+            <div class="stat-value">{{ storage_used|human_size }}</div>
+            <div class="stat-label">Storage Used</div>
+        </div>
+    </div>
+    <div class="stat-card">
+        <div class="stat-icon indigo"><i class="fa-solid fa-star"></i></div>
+        <div class="stat-info">
+            <div class="stat-value">{{ fav_files|length }}</div>
+            <div class="stat-label">Favorites</div>
+        </div>
+    </div>
+</div>
+
+<!-- Storage bar -->
+<div class="card storage-card">
+    <div class="storage-header">
+        <span><i class="fa-solid fa-hard-drive"></i> Storage Usage</span>
+        <span>{{ storage_used|human_size }} / {{ storage_limit|human_size }}</span>
+    </div>
+    <div class="storage-bar-lg">
+        <div class="storage-fill {{ 'warning' if storage_percent > 80 else '' }}" style="width:{{ storage_percent }}%"></div>
+    </div>
+    <div class="storage-percent-label">{{ storage_percent }}% used</div>
+</div>
+
+<div class="dashboard-grid">
+    <!-- Recent files -->
+    <div class="card">
+        <div class="card-header">
+            <h3><i class="fa-solid fa-clock"></i> Recent Files</h3>
+            <a href="{{ url_for('files.list_files') }}" class="link-muted">View all</a>
+        </div>
+        <div class="card-body">
+            {% if recent_files %}
+            <div class="file-list">
+                {% for f in recent_files %}
+                <a href="{{ url_for('files.file_detail', file_id=f.id) }}" class="file-row">
+                    <div class="file-icon file-{{ f.file_type }}"><i class="fa-solid {{ f.icon_class() }}"></i></div>
+                    <div class="file-info">
+                        <div class="file-name">{{ f.original_filename }}</div>
+                        <div class="file-meta">{{ f.size_human() }} · {{ f.created_at|timeago }}</div>
+                    </div>
+                    <div class="file-badge">{{ f.file_type }}</div>
+                </a>
+                {% endfor %}
+            </div>
+            {% else %}
+            <div class="empty-state small">
+                <i class="fa-solid fa-folder-open"></i>
+                <p>No files yet. <a href="{{ url_for('files.upload') }}">Upload your first file</a></p>
+            </div>
+            {% endif %}
+        </div>
+    </div>
+
+    <!-- Activity & type breakdown -->
+    <div class="dashboard-side">
+        <!-- File type chart -->
+        <div class="card">
+            <div class="card-header"><h3><i class="fa-solid fa-chart-pie"></i> File Types</h3></div>
+            <div class="card-body">
+                {% if type_counts %}
+                <div class="type-bars">
+                    {% set type_colors = {'image':'#87CEEB','video':'#5ba3d9','audio':'#4a90b8','document':'#3a7a9c','archive':'#2d6080','text':'#1e4a62','other':'#aecde0'} %}
+                    {% for type, count in type_counts.items() %}
+                    <div class="type-bar-row">
+                        <div class="type-label">{{ type or 'other' }}</div>
+                        <div class="type-bar">
+                            <div class="type-bar-fill" style="width:{{ [count * 20, 100]|min }}%; background:{{ type_colors.get(type,'#87CEEB') }}"></div>
+                        </div>
+                        <div class="type-count">{{ count }}</div>
+                    </div>
+                    {% endfor %}
+                </div>
+                {% else %}
+                <p class="text-muted">Upload files to see stats.</p>
+                {% endif %}
+            </div>
+        </div>
+
+        <!-- Recent activity -->
+        <div class="card">
+            <div class="card-header">
+                <h3><i class="fa-solid fa-bolt"></i> Recent Activity</h3>
+                <a href="{{ url_for('main.activity') }}" class="link-muted">All</a>
+            </div>
+            <div class="card-body">
+                {% if activities %}
+                <ul class="activity-list">
+                    {% for act in activities %}
+                    <li class="activity-item">
+                        <div class="act-icon act-{{ act.action }}"><i class="fa-solid {{ 'fa-upload' if act.action=='upload' else 'fa-trash' if act.action=='delete' else 'fa-share-nodes' if act.action=='share' else 'fa-download' if act.action=='download' else 'fa-circle' }}"></i></div>
+                        <div class="act-info">
+                            <div class="act-text">{{ act.action|title }} <strong>{{ act.target_name or '' }}</strong></div>
+                            <div class="act-time">{{ act.created_at|timeago }}</div>
+                        </div>
+                    </li>
+                    {% endfor %}
+                </ul>
+                {% else %}
+                <p class="text-muted">No activity yet.</p>
+                {% endif %}
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}

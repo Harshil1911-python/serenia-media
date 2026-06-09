@@ -1,0 +1,38 @@
+{% extends "base.html" %}
+{% block title %}Admin Files — Serenia Media{% endblock %}
+{% block content %}
+<div class="page-header"><h1>All Files</h1><span class="badge">{{ files.total }} total</span></div>
+<form class="toolbar" method="get">
+    <div class="toolbar-search"><i class="fa-solid fa-magnifying-glass"></i><input type="text" name="q" value="{{ q }}" placeholder="Search files…"></div>
+    <button type="submit" class="btn-primary btn-sm">Search</button>
+</form>
+<div class="table-wrapper">
+    <table class="data-table">
+        <thead><tr><th>File</th><th>Owner</th><th>Size</th><th>Type</th><th>Uploaded</th><th>Status</th></tr></thead>
+        <tbody>
+        {% for f in files.items %}
+        <tr>
+            <td>
+                <div class="file-row-compact">
+                    <div class="file-icon file-{{ f.file_type }}"><i class="fa-solid {{ f.icon_class() }}"></i></div>
+                    <span>{{ f.original_filename }}</span>
+                </div>
+            </td>
+            <td>{{ f.owner.username if f.owner else '—' }}</td>
+            <td>{{ f.size_human() }}</td>
+            <td><span class="badge badge-{{ f.file_type }}">{{ f.file_type }}</span></td>
+            <td>{{ f.created_at|timeago }}</td>
+            <td><span class="badge {{ 'badge-error' if f.is_deleted else 'badge-success' }}">{{ 'Deleted' if f.is_deleted else 'Active' }}</span></td>
+        </tr>
+        {% endfor %}
+        </tbody>
+    </table>
+</div>
+{% if files.pages > 1 %}
+<div class="pagination">
+    {% if files.has_prev %}<a href="?page={{ files.prev_num }}&q={{ q }}" class="btn-outline btn-sm">← Prev</a>{% endif %}
+    <span class="page-info">Page {{ files.page }} of {{ files.pages }}</span>
+    {% if files.has_next %}<a href="?page={{ files.next_num }}&q={{ q }}" class="btn-outline btn-sm">Next →</a>{% endif %}
+</div>
+{% endif %}
+{% endblock %}

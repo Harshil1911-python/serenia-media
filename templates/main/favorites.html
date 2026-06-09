@@ -1,0 +1,44 @@
+{% extends "base.html" %}
+{% block title %}Favorites — Serenia Media{% endblock %}
+{% block content %}
+<div class="page-header"><h1>Favorites</h1></div>
+{% if files %}
+<div class="files-grid">
+    {% for f in files %}
+    <div class="file-card">
+        <a href="{{ url_for('files.file_detail', file_id=f.id) }}" class="file-card-preview file-{{ f.file_type }}">
+            {% if f.file_type == 'image' %}
+            <img src="{{ url_for('files.preview', file_id=f.id) }}" alt="{{ f.original_filename }}" loading="lazy" onerror="this.style.display='none'">
+            {% else %}
+            <div class="file-icon-large"><i class="fa-solid {{ f.icon_class() }}"></i></div>
+            {% endif %}
+        </a>
+        <div class="file-card-info">
+            <div class="file-card-name">{{ f.original_filename }}</div>
+            <div class="file-card-meta">{{ f.size_human() }} · {{ f.created_at|timeago }}</div>
+        </div>
+        <div class="file-card-actions">
+            <a href="{{ url_for('files.download', file_id=f.id) }}" class="btn-icon-sm"><i class="fa-solid fa-download"></i></a>
+            <button class="btn-icon-sm active fav-btn" onclick="toggleFav({{ f.id }}, this)"><i class="fa-solid fa-star"></i></button>
+        </div>
+    </div>
+    {% endfor %}
+</div>
+{% else %}
+<div class="empty-state">
+    <i class="fa-solid fa-star"></i>
+    <h3>No favorites yet</h3>
+    <p>Star files to add them here.</p>
+    <a href="{{ url_for('files.list_files') }}" class="btn-primary">Browse Files</a>
+</div>
+{% endif %}
+{% endblock %}
+{% block extra_js %}
+<script>
+async function toggleFav(id, btn) {
+    const r = await fetch(`/files/${id}/favorite`, {method:'POST'});
+    const data = await r.json();
+    if (!data.favorited) btn.closest('.file-card').remove();
+}
+</script>
+{% endblock %}

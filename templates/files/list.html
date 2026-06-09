@@ -1,0 +1,205 @@
+{% extends "base.html" %}
+{% block title %}My Files — Serenia Media{% endblock %}
+{% block content %}
+<div class="page-header">
+    <h1>My Files</h1>
+    <a href="{{ url_for('files.upload') }}" class="btn-primary"><i class="fa-solid fa-plus"></i> Upload</a>
+</div>
+
+<div class="toolbar">
+    <form class="toolbar-search" method="get">
+        <i class="fa-solid fa-magnifying-glass"></i>
+        <input type="text" name="q" placeholder="Search files..." value="{{ q }}">
+        <input type="hidden" name="type" value="{{ file_type }}">
+        <input type="hidden" name="sort" value="{{ sort }}">
+    </form>
+    <div class="toolbar-filters">
+        <select name="type" id="typeFilter" onchange="applyFilter()">
+            <option value="" {{ 'selected' if not file_type }}>All Types</option>
+            <option value="image" {{ 'selected' if file_type=='image' }}>Images</option>
+            <option value="video" {{ 'selected' if file_type=='video' }}>Videos</option>
+            <option value="audio" {{ 'selected' if file_type=='audio' }}>Audio</option>
+            <option value="document" {{ 'selected' if file_type=='document' }}>Documents</option>
+            <option value="archive" {{ 'selected' if file_type=='archive' }}>Archives</option>
+            <option value="text" {{ 'selected' if file_type=='text' }}>Text</option>
+        </select>
+        <select name="sort" id="sortFilter" onchange="applyFilter()">
+            <option value="date" {{ 'selected' if sort=='date' }}>Newest First</option>
+            <option value="name" {{ 'selected' if sort=='name' }}>Name A-Z</option>
+            <option value="size" {{ 'selected' if sort=='size' }}>Largest First</option>
+            <option value="type" {{ 'selected' if sort=='type' }}>By Type</option>
+        </select>
+    </div>
+    <div class="toolbar-actions">
+        <button class="btn-icon" id="viewGrid" title="Grid view"><i class="fa-solid fa-grid-2"></i></button>
+        <button class="btn-icon" id="viewList" title="List view"><i class="fa-solid fa-list"></i></button>
+        <button class="btn-outline btn-sm btn-danger" id="bulkDeleteBtn" style="display:none" onclick="bulkDelete()">
+            <i class="fa-solid fa-trash"></i> Delete Selected
+        </button>
+    </div>
+</div>
+
+{% if files.items %}
+<div class="files-grid" id="filesGrid">
+    {% for f in files.items %}
+    <div class="file-card" data-id="{{ f.id }}">
+        <div class="file-card-check">
+            <input type="checkbox" class="file-select" value="{{ f.id }}" onchange="updateBulk()">
+        </div>
+        <a href="{{ url_for('files.file_detail', file_id=f.id) }}" class="file-card-preview file-{{ f.file_type }}">
+            {% if f.file_type == 'image' %}
+            <img src="{{ url_for('files.preview', file_id=f.id) }}" alt="{{ f.original_filename }}" loading="lazy" onerror="this.style.display='none';this.nextElementSibling.style.display='flex'">
+            <div class="file-icon-fallback" style="display:none"><i class="fa-solid {{ f.icon_class() }}"></i></div>
+            {% else %}
+            <div class="file-icon-large"><i class="fa-solid {{ f.icon_class() }}"></i></div>
+            {% endif %}
+        </a>
+        <div class="file-card-info">
+            <div class="file-card-name" title="{{ f.original_filename }}">{{ f.original_filename }}</div>
+            <div class="file-card-meta">{{ f.size_human() }} · {{ f.created_at|timeago }}</div>
+        </div>
+        <div class="file-card-actions">
+            <a href="{{ url_for('files.download', file_id=f.id) }}" class="btn-icon-sm" title="Download"><i class="fa-solid fa-download"></i></a>
+            <button class="btn-icon-sm" onclick="shareFile({{ f.id }})" title="Share"><i class="fa-solid fa-share-nodes"></i></button>
+            <button class="btn-icon-sm fav-btn {{ 'active' if f.is_favorite }}" onclick="toggleFav({{ f.id }}, this)" title="Favorite"><i class="fa-{{ 'solid' if f.is_favorite else 'regular' }} fa-star"></i></button>
+            <button class="btn-icon-sm btn-danger-hover" onclick="deleteFile({{ f.id }}, this)" title="Delete"><i class="fa-solid fa-trash"></i></button>
+        </div>
+    </div>
+    {% endfor %}
+</div>
+
+<!-- Pagination -->
+{% if files.pages > 1 %}
+<div class="pagination">
+    {% if files.has_prev %}
+    <a href="{{ url_for('files.list_files', page=files.prev_num, type=file_type, sort=sort, q=q) }}" class="btn-outline btn-sm">← Prev</a>
+    {% endif %}
+    <span class="page-info">Page {{ files.page }} of {{ files.pages }}</span>
+    {% if files.has_next %}
+    <a href="{{ url_for('files.list_files', page=files.next_num, type=file_type, sort=sort, q=q) }}" class="btn-outline btn-sm">Next →</a>
+    {% endif %}
+</div>
+{% endif %}
+
+{% else %}
+<div class="empty-state">
+    <i class="fa-solid fa-folder-open"></i>
+    <h3>No files found</h3>
+    <p>{% if q %}No files match your search.{% else %}Upload your first file to get started.{% endif %}</p>
+    <a href="{{ url_for('files.upload') }}" class="btn-primary">Upload Files</a>
+</div>
+{% endif %}
+
+<!-- Share Modal -->
+<div class="modal" id="shareModal">
+    <div class="modal-backdrop" onclick="closeModal('shareModal')"></div>
+    <div class="modal-content">
+        <div class="modal-header">
+            <h3><i class="fa-solid fa-share-nodes"></i> Share File</h3>
+            <button onclick="closeModal('shareModal')"><i class="fa-solid fa-xmark"></i></button>
+        </div>
+        <div class="modal-body">
+            <div class="form-group">
+                <label>Expiry</label>
+                <select id="shareExpiry">
+                    <option value="">Never</option>
+                    <option value="1">1 Hour</option>
+                    <option value="24">24 Hours</option>
+                    <option value="168">7 Days</option>
+                    <option value="720">30 Days</option>
+                </select>
+            </div>
+            <div class="form-group">
+                <label class="checkbox-label"><input type="checkbox" id="shareDownload" checked> Allow Download</label>
+            </div>
+            <button class="btn-primary btn-full" id="createShareBtn">Generate Link</button>
+            <div id="shareResult" style="display:none">
+                <div class="share-link-box">
+                    <input type="text" id="shareLinkInput" readonly>
+                    <button class="btn-primary" onclick="copyShareLink()"><i class="fa-solid fa-copy"></i></button>
+                </div>
+                <div class="share-qr-link"><a id="shareQrLink" target="_blank"><i class="fa-solid fa-qrcode"></i> QR Code</a></div>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}
+{% block extra_js %}
+<script>
+let currentShareFileId = null;
+
+function applyFilter() {
+    const type = document.getElementById('typeFilter').value;
+    const sort = document.getElementById('sortFilter').value;
+    const q = document.querySelector('.toolbar-search input').value;
+    window.location = `{{ url_for('files.list_files') }}?type=${type}&sort=${sort}&q=${encodeURIComponent(q)}`;
+}
+
+function updateBulk() {
+    const checked = document.querySelectorAll('.file-select:checked');
+    document.getElementById('bulkDeleteBtn').style.display = checked.length ? 'inline-flex' : 'none';
+}
+
+async function bulkDelete() {
+    const ids = Array.from(document.querySelectorAll('.file-select:checked')).map(c => parseInt(c.value));
+    if (!confirm(`Delete ${ids.length} file(s)?`)) return;
+    const r = await fetch('{{ url_for("files.bulk_delete") }}', {
+        method:'POST', headers:{'Content-Type':'application/json'},
+        body: JSON.stringify({ids})
+    });
+    if ((await r.json()).ok) { showToast(`${ids.length} files deleted`, 'success'); setTimeout(()=>location.reload(),800); }
+}
+
+async function deleteFile(id, btn) {
+    if (!confirm('Delete this file?')) return;
+    const r = await fetch(`/files/${id}/delete`, {method:'POST'});
+    if ((await r.json()).ok) {
+        btn.closest('.file-card').remove();
+        showToast('File deleted', 'success');
+    }
+}
+
+async function toggleFav(id, btn) {
+    const r = await fetch(`/files/${id}/favorite`, {method:'POST'});
+    const data = await r.json();
+    if (data.ok) {
+        btn.querySelector('i').className = `fa-${data.favorited ? 'solid' : 'regular'} fa-star`;
+        btn.classList.toggle('active', data.favorited);
+    }
+}
+
+function shareFile(id) {
+    currentShareFileId = id;
+    document.getElementById('shareResult').style.display = 'none';
+    document.getElementById('shareModal').classList.add('open');
+}
+
+document.getElementById('createShareBtn').onclick = async () => {
+    const expires = document.getElementById('shareExpiry').value;
+    const allowDl = document.getElementById('shareDownload').checked;
+    const r = await fetch(`/files/${currentShareFileId}/share`, {
+        method:'POST', headers:{'Content-Type':'application/json'},
+        body: JSON.stringify({expires_in: expires || null, allow_download: allowDl})
+    });
+    const data = await r.json();
+    if (data.ok) {
+        document.getElementById('shareLinkInput').value = data.url;
+        document.getElementById('shareQrLink').href = `/share/${data.token}/qr`;
+        document.getElementById('shareResult').style.display = 'block';
+    }
+};
+
+function copyShareLink() {
+    const input = document.getElementById('shareLinkInput');
+    navigator.clipboard.writeText(input.value);
+    showToast('Link copied!', 'success');
+}
+
+document.getElementById('viewGrid').onclick = () => {
+    document.getElementById('filesGrid').className = 'files-grid';
+};
+document.getElementById('viewList').onclick = () => {
+    document.getElementById('filesGrid').className = 'files-list-view';
+};
+</script>
+{% endblock %}

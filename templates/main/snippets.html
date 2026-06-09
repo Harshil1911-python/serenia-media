@@ -1,0 +1,102 @@
+{% extends "base.html" %}
+{% block title %}Text Snippets — Serenia Media{% endblock %}
+{% block content %}
+<div class="page-header">
+    <h1>Text Snippets</h1>
+    <button class="btn-primary" onclick="document.getElementById('newSnippetModal').classList.add('open')">
+        <i class="fa-solid fa-plus"></i> New Snippet
+    </button>
+</div>
+
+{% if snippets %}
+<div class="snippets-grid">
+    {% for snip in snippets %}
+    <div class="snippet-card">
+        <div class="snippet-header">
+            <div class="snippet-title">{{ snip.title }}</div>
+            <div class="snippet-badges">
+                {% if snip.language %}<span class="badge badge-lang">{{ snip.language }}</span>{% endif %}
+                {% if snip.is_public %}<span class="badge badge-success">Public</span>{% else %}<span class="badge">Private</span>{% endif %}
+            </div>
+        </div>
+        <pre class="snippet-preview">{{ snip.content[:300] }}{% if snip.content|length > 300 %}…{% endif %}</pre>
+        <div class="snippet-footer">
+            <span class="snippet-meta">{{ snip.created_at|timeago }}</span>
+            <div class="snippet-actions">
+                <button class="btn-icon-sm" onclick="copySnippet(this, {{ snip.id }})" title="Copy"><i class="fa-solid fa-copy"></i></button>
+                {% if snip.is_public %}
+                <button class="btn-icon-sm" onclick="copyLink('{{ url_for('main.public_snippet', token=snip.token, _external=True) }}')" title="Copy share link"><i class="fa-solid fa-share-nodes"></i></button>
+                {% endif %}
+                <button class="btn-icon-sm btn-danger-hover" onclick="deleteSnippet({{ snip.id }}, this)" title="Delete"><i class="fa-solid fa-trash"></i></button>
+            </div>
+        </div>
+        <div class="snippet-content-hidden" id="sc-{{ snip.id }}" style="display:none">{{ snip.content }}</div>
+    </div>
+    {% endfor %}
+</div>
+{% else %}
+<div class="empty-state">
+    <i class="fa-solid fa-code"></i>
+    <h3>No snippets yet</h3>
+    <p>Create your first text snippet to copy and share.</p>
+    <button class="btn-primary" onclick="document.getElementById('newSnippetModal').classList.add('open')">Create Snippet</button>
+</div>
+{% endif %}
+
+<!-- New Snippet Modal -->
+<div class="modal" id="newSnippetModal">
+    <div class="modal-backdrop" onclick="closeModal('newSnippetModal')"></div>
+    <div class="modal-content modal-lg">
+        <div class="modal-header">
+            <h3>New Text Snippet</h3>
+            <button onclick="closeModal('newSnippetModal')"><i class="fa-solid fa-xmark"></i></button>
+        </div>
+        <div class="modal-body">
+            <form method="POST" action="{{ url_for('main.create_snippet') }}">
+                <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+                <div class="form-group">
+                    <label>Title</label>
+                    <input type="text" name="title" required placeholder="My snippet">
+                </div>
+                <div class="form-group">
+                    <label>Language (optional)</label>
+                    <select name="language">
+                        <option value="">Plain text</option>
+                        <option value="python">Python</option>
+                        <option value="javascript">JavaScript</option>
+                        <option value="html">HTML</option>
+                        <option value="css">CSS</option>
+                        <option value="sql">SQL</option>
+                        <option value="bash">Bash</option>
+                        <option value="json">JSON</option>
+                        <option value="markdown">Markdown</option>
+                    </select>
+                </div>
+                <div class="form-group">
+                    <label>Content</label>
+                    <textarea name="content" required rows="10" placeholder="Paste your text here…"></textarea>
+                </div>
+                <div class="form-group">
+                    <label class="checkbox-label"><input type="checkbox" name="is_public"> Make public (shareable link)</label>
+                </div>
+                <button type="submit" class="btn-primary">Create Snippet</button>
+            </form>
+        </div>
+    </div>
+</div>
+{% endblock %}
+{% block extra_js %}
+<script>
+function copySnippet(btn, id) {
+    const content = document.getElementById(`sc-${id}`).textContent;
+    navigator.clipboard.writeText(content);
+    showToast('Copied to clipboard!', 'success');
+}
+function copyLink(url) { navigator.clipboard.writeText(url); showToast('Link copied!', 'success'); }
+async function deleteSnippet(id, btn) {
+    if (!confirm('Delete this snippet?')) return;
+    const r = await fetch(`/snippets/${id}/delete`, {method:'POST'});
+    if ((await r.json()).ok) { btn.closest('.snippet-card').remove(); showToast('Deleted','success'); }
+}
+</script>
+{% endblock %}

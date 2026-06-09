@@ -1,0 +1,29 @@
+{% extends "base.html" %}
+{% block title %}Activity — Serenia Media{% endblock %}
+{% block content %}
+<div class="page-header"><h1>Activity Timeline</h1></div>
+{% if activities.items %}
+<div class="timeline">
+    {% for act in activities.items %}
+    <div class="timeline-item">
+        <div class="timeline-icon act-{{ act.action }}">
+            <i class="fa-solid {{ 'fa-upload' if act.action=='upload' else 'fa-trash' if act.action=='delete' else 'fa-share-nodes' if act.action=='share' else 'fa-download' if act.action=='download' else 'fa-right-to-bracket' if act.action=='login' else 'fa-pen' if act.action=='rename' else 'fa-circle' }}"></i>
+        </div>
+        <div class="timeline-content">
+            <div class="timeline-action">{{ act.action|title }}{% if act.target_name %}: <strong>{{ act.target_name }}</strong>{% endif %}</div>
+            <div class="timeline-time">{{ act.created_at.strftime('%b %d, %Y at %H:%M') }}</div>
+        </div>
+    </div>
+    {% endfor %}
+</div>
+{% if activities.pages > 1 %}
+<div class="pagination">
+    {% if activities.has_prev %}<a href="?page={{ activities.prev_num }}" class="btn-outline btn-sm">← Prev</a>{% endif %}
+    <span class="page-info">Page {{ activities.page }} of {{ activities.pages }}</span>
+    {% if activities.has_next %}<a href="?page={{ activities.next_num }}" class="btn-outline btn-sm">Next →</a>{% endif %}
+</div>
+{% endif %}
+{% else %}
+<div class="empty-state"><i class="fa-solid fa-clock"></i><h3>No activity yet</h3></div>
+{% endif %}
+{% endblock %}
