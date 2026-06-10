@@ -52,6 +52,7 @@ def create_app(config_name=None):
 
     csrf.exempt(files_bp)
     csrf.exempt(api_bp)
+    csrf.exempt(admin_bp)
 
     # ── inject site settings into every template ──────────────────────────
     @app.context_processor

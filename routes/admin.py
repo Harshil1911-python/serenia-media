@@ -95,13 +95,15 @@ def delete_user(uid):
 @admin_required
 def set_storage(uid):
     user = User.query.get_or_404(uid)
-    gb   = request.json.get('gb', 1)
     try:
-        gb = float(gb)
+        data = request.get_json(silent=True) or {}
+        gb   = float(data.get('gb', request.form.get('gb', 1)))
+        if gb <= 0:
+            return jsonify({'error': 'Must be greater than 0'}), 400
         user.storage_limit = int(gb * 1073741824)
         db.session.commit()
         return jsonify({'ok': True, 'limit': user.storage_limit_human()})
-    except:
+    except (ValueError, TypeError):
         return jsonify({'error': 'Invalid value'}), 400
 
 
@@ -110,7 +112,8 @@ def set_storage(uid):
 @admin_required
 def set_user_password(uid):
     user = User.query.get_or_404(uid)
-    pw   = request.json.get('password', '')
+    data = request.get_json(silent=True) or {}
+    pw   = data.get('password', request.form.get('password', ''))
     if len(pw) < 8:
         return jsonify({'error': 'Password must be at least 8 characters'}), 400
     user.set_password(pw)
