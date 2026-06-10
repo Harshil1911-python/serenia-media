@@ -1,0 +1,143 @@
+{% extends "base.html" %}
+{% block title %}DataVault — {{ site_name }}{% endblock %}
+{% block content %}
+<div class="page-header">
+  <h1><i class="fa-solid fa-database"></i> DataVault</h1>
+  <span class="badge">{{ vault|length }} users</span>
+</div>
+<p class="text-muted" style="margin-bottom:1.5rem">Full data overview for all registered users.</p>
+
+{% for entry in vault %}
+<div class="datavault-user-card">
+  <div class="datavault-user-header" onclick="toggleVault({{ entry.user.id }})">
+    <div class="user-cell">
+      {% if entry.user.avatar_path %}
+      <img src="/static/avatars/{{ entry.user.avatar_path }}" class="user-avatar-sm" style="object-fit:cover">
+      {% else %}
+      <div class="user-avatar-sm">{{ entry.user.username[0].upper() }}</div>
+      {% endif %}
+      <div>
+        <strong>{{ entry.user.username }}</strong>
+        {% if entry.user.is_admin %}<span class="badge badge-primary">Admin</span>{% endif %}
+        {% if not entry.user.is_active %}<span class="badge badge-error">Disabled</span>{% endif %}
+        <div class="compact-meta">{{ entry.user.email }} · Joined {{ entry.user.created_at|timeago }}</div>
+      </div>
+    </div>
+    <div style="display:flex;gap:1rem;align-items:center;flex-wrap:wrap">
+      <span class="badge">{{ entry.files|length }} files</span>
+      <span class="badge">{{ entry.shares|length }} shares</span>
+      <span class="badge">{{ entry.user.storage_used|human_size }} used</span>
+      <i class="fa-solid fa-chevron-down vault-chevron" id="chev-{{ entry.user.id }}"></i>
+    </div>
+  </div>
+
+  <div class="datavault-user-body" id="vault-{{ entry.user.id }}" style="display:none">
+    <div class="vault-grid">
+      <!-- Files -->
+      <div>
+        <h4 style="margin-bottom:0.75rem"><i class="fa-solid fa-folder"></i> Files ({{ entry.files|length }})</h4>
+        {% if entry.files %}
+        <ul class="compact-list">
+          {% for f in entry.files[:10] %}
+          <li class="compact-item">
+            <div class="file-icon file-{{ f.file_type }}" style="width:28px;height:28px;font-size:0.75rem"><i class="fa-solid {{ f.icon_class() }}"></i></div>
+            <div><div class="compact-name">{{ f.original_filename }}</div><div class="compact-meta">{{ f.size_human() }} · {{ f.created_at|timeago }}</div></div>
+          </li>
+          {% endfor %}
+          {% if entry.files|length > 10 %}<li class="compact-item text-muted">… and {{ entry.files|length - 10 }} more</li>{% endif %}
+        </ul>
+        {% else %}<p class="text-muted">No files.</p>{% endif %}
+      </div>
+
+      <!-- Activity -->
+      <div>
+        <h4 style="margin-bottom:0.75rem"><i class="fa-solid fa-clock"></i> Recent Activity</h4>
+        {% if entry.activities %}
+        <ul class="compact-list">
+          {% for act in entry.activities %}
+          <li class="compact-item">
+            <div class="act-icon act-{{ act.action }}" style="width:26px;height:26px;font-size:0.7rem"><i class="fa-solid {{ 'fa-upload' if act.action=='upload' else 'fa-download' if act.action=='download' else 'fa-share-nodes' if act.action=='share' else 'fa-trash' if act.action=='delete' else 'fa-circle' }}"></i></div>
+            <div><div class="compact-name">{{ act.action|title }}{% if act.target_name %}: {{ act.target_name }}{% endif %}</div><div class="compact-meta">{{ act.created_at|timeago }}</div></div>
+          </li>
+          {% endfor %}
+        </ul>
+        {% else %}<p class="text-muted">No activity.</p>{% endif %}
+      </div>
+    </div>
+
+    <!-- Admin actions on this user -->
+    <div class="vault-actions">
+      <button class="btn-outline btn-sm" onclick="setStoragePrompt({{ entry.user.id }}, '{{ entry.user.username }}')"><i class="fa-solid fa-hard-drive"></i> Set Storage</button>
+      <button class="btn-outline btn-sm" onclick="setPasswordPrompt({{ entry.user.id }}, '{{ entry.user.username }}')"><i class="fa-solid fa-key"></i> Reset Password</button>
+      <button class="btn-outline btn-sm" onclick="toggleUserInline({{ entry.user.id }}, this)"><i class="fa-solid {{ 'fa-ban' if entry.user.is_active else 'fa-check' }}"></i> {{ 'Disable' if entry.user.is_active else 'Enable' }}</button>
+      {% if entry.user.id != current_user.id %}
+      <button class="btn-danger btn-sm" onclick="deleteUserInline({{ entry.user.id }}, this)"><i class="fa-solid fa-trash"></i> Delete User</button>
+      {% endif %}
+    </div>
+  </div>
+</div>
+{% endfor %}
+
+<!-- Storage Modal -->
+<div class="modal" id="storageModal">
+  <div class="modal-backdrop" onclick="closeModal('storageModal')"></div>
+  <div class="modal-content">
+    <div class="modal-header"><h3>Set Storage Limit</h3><button onclick="closeModal('storageModal')"><i class="fa-solid fa-xmark"></i></button></div>
+    <div class="modal-body">
+      <p id="storageModalUser" style="margin-bottom:1rem;color:var(--text-muted)"></p>
+      <div class="form-group"><label>Storage Limit (GB)</label><input type="number" id="storageGbInput" value="1" min="0.1" step="0.5"></div>
+      <button class="btn-primary btn-full" onclick="submitStorage()">Set Limit</button>
+    </div>
+  </div>
+</div>
+
+<!-- Password Modal -->
+<div class="modal" id="pwModal">
+  <div class="modal-backdrop" onclick="closeModal('pwModal')"></div>
+  <div class="modal-content">
+    <div class="modal-header"><h3>Reset User Password</h3><button onclick="closeModal('pwModal')"><i class="fa-solid fa-xmark"></i></button></div>
+    <div class="modal-body">
+      <p id="pwModalUser" style="margin-bottom:1rem;color:var(--text-muted)"></p>
+      <div class="form-group"><label>New Password</label><input type="password" id="newPwInput" placeholder="Min 8 characters" minlength="8"></div>
+      <button class="btn-primary btn-full" onclick="submitPassword()">Set Password</button>
+    </div>
+  </div>
+</div>
+{% endblock %}
+{% block extra_js %}
+<script>
+let targetUid = null;
+function toggleVault(uid) {
+  const body = document.getElementById('vault-' + uid);
+  const chev = document.getElementById('chev-' + uid);
+  body.style.display = body.style.display === 'none' ? 'block' : 'none';
+  chev.style.transform = body.style.display === 'none' ? '' : 'rotate(180deg)';
+}
+function setStoragePrompt(uid, name) { targetUid=uid; document.getElementById('storageModalUser').textContent='User: '+name; document.getElementById('storageModal').classList.add('open'); }
+function setPasswordPrompt(uid, name) { targetUid=uid; document.getElementById('pwModalUser').textContent='User: '+name; document.getElementById('newPwInput').value=''; document.getElementById('pwModal').classList.add('open'); }
+async function submitStorage() {
+  const gb = parseFloat(document.getElementById('storageGbInput').value);
+  const r = await fetch(`/admin/users/${targetUid}/storage`,{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({gb})});
+  const d = await r.json();
+  if(d.ok){showToast(`Storage set to ${d.limit}`,'success');closeModal('storageModal');}
+  else showToast(d.error,'error');
+}
+async function submitPassword() {
+  const pw = document.getElementById('newPwInput').value;
+  const r = await fetch(`/admin/users/${targetUid}/password`,{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({password:pw})});
+  const d = await r.json();
+  if(d.ok){showToast('Password updated','success');closeModal('pwModal');}
+  else showToast(d.error,'error');
+}
+async function toggleUserInline(uid, btn) {
+  const r = await fetch(`/admin/users/${uid}/toggle`,{method:'POST'});
+  const d = await r.json();
+  if(d.ok){showToast(`User ${d.active?'enabled':'disabled'}`,'success');setTimeout(()=>location.reload(),800);}
+}
+async function deleteUserInline(uid, btn) {
+  if(!confirm('Permanently delete this user and ALL their data?'))return;
+  const r = await fetch(`/admin/users/${uid}/delete`,{method:'POST'});
+  if((await r.json()).ok){btn.closest('.datavault-user-card').remove();showToast('User deleted','success');}
+}
+</script>
+{% endblock %}

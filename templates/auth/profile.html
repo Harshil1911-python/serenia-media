@@ -1,74 +1,133 @@
 {% extends "base.html" %}
-{% block title %}Settings — Serenia Media{% endblock %}
+{% block title %}Settings — {{ site_name }}{% endblock %}
 {% block content %}
-<div class="page-header">
-    <h1>Account Settings</h1>
+<div class="page-header"><h1>Account Settings</h1></div>
+<div class="settings-tabs">
+  <button class="tab-btn active" onclick="showTab('profile')"><i class="fa-solid fa-user"></i> Profile</button>
+  <button class="tab-btn" onclick="showTab('password')"><i class="fa-solid fa-lock"></i> Password</button>
+  <button class="tab-btn" onclick="showTab('legal')"><i class="fa-solid fa-file-lines"></i> Legal</button>
+  <button class="tab-btn danger-tab" onclick="showTab('danger')"><i class="fa-solid fa-triangle-exclamation"></i> Danger Zone</button>
 </div>
-<div class="settings-grid">
-    <div class="card">
-        <div class="card-header"><h3><i class="fa-solid fa-user"></i> Profile</h3></div>
-        <div class="card-body">
-            <div class="avatar-display">{{ current_user.username[0].upper() }}</div>
-            <form method="POST" action="{{ url_for('auth.profile') }}">
-                <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
-                <div class="form-group">
-                    <label>Username</label>
-                    <input type="text" value="{{ current_user.username }}" disabled class="input-disabled">
-                </div>
-                <div class="form-group">
-                    <label>Email</label>
-                    <input type="text" value="{{ current_user.email }}" disabled class="input-disabled">
-                </div>
-                <div class="form-group">
-                    <label>Bio</label>
-                    <textarea name="bio" rows="3" placeholder="Tell us about yourself...">{{ current_user.bio or '' }}</textarea>
-                </div>
-                <div class="form-group">
-                    <label class="checkbox-label">
-                        <input type="checkbox" name="dark_mode" {{ 'checked' if current_user.dark_mode }}> Dark Mode
-                    </label>
-                </div>
-                <button type="submit" class="btn-primary">Save Changes</button>
-            </form>
-        </div>
-    </div>
 
-    <div class="card">
-        <div class="card-header"><h3><i class="fa-solid fa-lock"></i> Change Password</h3></div>
-        <div class="card-body">
-            <form method="POST" action="{{ url_for('auth.change_password') }}">
-                <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
-                <div class="form-group">
-                    <label>Current Password</label>
-                    <input type="password" name="current_password" required placeholder="••••••••">
-                </div>
-                <div class="form-group">
-                    <label>New Password</label>
-                    <input type="password" name="new_password" required placeholder="Min 8 characters" minlength="8">
-                </div>
-                <div class="form-group">
-                    <label>Confirm New Password</label>
-                    <input type="password" name="confirm_password" required placeholder="Repeat new password">
-                </div>
-                <button type="submit" class="btn-primary">Update Password</button>
-            </form>
+<!-- Profile Tab -->
+<div class="tab-panel active" id="tab-profile">
+  <div class="card">
+    <div class="card-header"><h3><i class="fa-solid fa-user"></i> Profile</h3></div>
+    <div class="card-body">
+      <form method="POST" enctype="multipart/form-data">
+        <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+        <input type="hidden" name="action" value="profile">
+        <div class="avatar-upload-section">
+          <div class="avatar-preview" id="avatarPreview">
+            {% if current_user.avatar_path %}
+            <img src="/static/avatars/{{ current_user.avatar_path }}" id="avatarImg">
+            {% else %}
+            <div class="avatar-initials" id="avatarInitials">{{ current_user.username[0].upper() }}</div>
+            {% endif %}
+          </div>
+          <div class="avatar-upload-info">
+            <label class="btn-outline btn-sm" for="avatarInput"><i class="fa-solid fa-camera"></i> Change Photo</label>
+            <input type="file" name="avatar" id="avatarInput" accept="image/*" style="display:none" onchange="previewAvatar(this)">
+            <p class="text-muted" style="font-size:0.78rem;margin-top:0.375rem">JPG, PNG, GIF, WEBP</p>
+          </div>
         </div>
-    </div>
-
-    <div class="card">
-        <div class="card-header"><h3><i class="fa-solid fa-chart-pie"></i> Storage</h3></div>
-        <div class="card-body">
-            <div class="storage-detail">
-                <div class="storage-bar-lg">
-                    <div class="storage-fill" style="width:{{ current_user.storage_percent() }}%"></div>
-                </div>
-                <div class="storage-numbers">
-                    <span>{{ current_user.storage_used|human_size }} used</span>
-                    <span>{{ current_user.storage_limit|human_size }} total</span>
-                </div>
-                <div class="storage-percent">{{ current_user.storage_percent() }}% used</div>
-            </div>
+        <div class="form-group">
+          <label>Username</label>
+          <input type="text" value="{{ current_user.username }}" disabled class="input-disabled">
         </div>
+        <div class="form-group">
+          <label>Email</label>
+          <input type="text" value="{{ current_user.email }}" disabled class="input-disabled">
+        </div>
+        <div class="form-group">
+          <label>Bio</label>
+          <textarea name="bio" rows="3" placeholder="Tell us about yourself...">{{ current_user.bio or '' }}</textarea>
+        </div>
+        <div class="form-group">
+          <label class="checkbox-label"><input type="checkbox" name="dark_mode" {{ 'checked' if current_user.dark_mode }}> Dark Mode</label>
+        </div>
+        <button type="submit" class="btn-primary">Save Changes</button>
+      </form>
     </div>
+  </div>
+  <div class="card" style="margin-top:1.25rem">
+    <div class="card-header"><h3><i class="fa-solid fa-chart-pie"></i> Storage</h3></div>
+    <div class="card-body">
+      <div class="storage-bar-lg"><div class="storage-fill {{ 'warning' if current_user.storage_percent() > 80 }}" style="width:{{ current_user.storage_percent() }}%"></div></div>
+      <div class="storage-numbers"><span>{{ current_user.storage_used|human_size }} used</span><span>{{ current_user.storage_limit|human_size }} total</span></div>
+    </div>
+  </div>
 </div>
+
+<!-- Password Tab -->
+<div class="tab-panel" id="tab-password">
+  <div class="card">
+    <div class="card-header"><h3><i class="fa-solid fa-lock"></i> Change Password</h3></div>
+    <div class="card-body">
+      <form method="POST">
+        <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+        <input type="hidden" name="action" value="password">
+        <div class="form-group"><label>Current Password</label><input type="password" name="current_password" required placeholder="••••••••"></div>
+        <div class="form-group"><label>New Password</label><input type="password" name="new_password" required placeholder="Min 8 characters" minlength="8"></div>
+        <div class="form-group"><label>Confirm New Password</label><input type="password" name="confirm_password" required placeholder="Repeat new password"></div>
+        <button type="submit" class="btn-primary">Update Password</button>
+      </form>
+    </div>
+  </div>
+</div>
+
+<!-- Legal Tab -->
+<div class="tab-panel" id="tab-legal">
+  <div class="card">
+    <div class="card-header"><h3><i class="fa-solid fa-shield-halved"></i> Privacy Policy</h3></div>
+    <div class="card-body">
+      {% if privacy %}
+      <div class="legal-content">{{ privacy|safe }}</div>
+      {% else %}<p class="text-muted">No privacy policy has been set.</p>{% endif %}
+    </div>
+  </div>
+  <div class="card" style="margin-top:1.25rem">
+    <div class="card-header"><h3><i class="fa-solid fa-file-lines"></i> Terms of Use</h3></div>
+    <div class="card-body">
+      {% if terms %}
+      <div class="legal-content">{{ terms|safe }}</div>
+      {% else %}<p class="text-muted">No terms of use have been set.</p>{% endif %}
+    </div>
+  </div>
+</div>
+
+<!-- Danger Tab -->
+<div class="tab-panel" id="tab-danger">
+  <div class="card danger-card">
+    <div class="card-header"><h3><i class="fa-solid fa-triangle-exclamation"></i> Delete My Account</h3></div>
+    <div class="card-body">
+      <p style="color:var(--error);margin-bottom:1rem">This will permanently delete your account, all uploaded files, shares, and activity. <strong>This cannot be undone.</strong></p>
+      <form method="POST" onsubmit="return confirm('Are you absolutely sure? ALL your data will be deleted forever.')">
+        <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+        <input type="hidden" name="action" value="delete_account">
+        <div class="form-group"><label>Enter your password to confirm</label><input type="password" name="verify_password" required placeholder="Your current password"></div>
+        <button type="submit" class="btn-danger"><i class="fa-solid fa-trash"></i> Delete My Account Forever</button>
+      </form>
+    </div>
+  </div>
+</div>
+{% endblock %}
+{% block extra_js %}
+<script>
+function showTab(name) {
+  document.querySelectorAll('.tab-panel').forEach(p => p.classList.remove('active'));
+  document.querySelectorAll('.tab-btn').forEach(b => b.classList.remove('active'));
+  document.getElementById('tab-' + name).classList.add('active');
+  event.currentTarget.classList.add('active');
+}
+function previewAvatar(input) {
+  if (!input.files[0]) return;
+  const reader = new FileReader();
+  reader.onload = e => {
+    const prev = document.getElementById('avatarPreview');
+    prev.innerHTML = `<img src="${e.target.result}" id="avatarImg">`;
+  };
+  reader.readAsDataURL(input.files[0]);
+}
+</script>
 {% endblock %}

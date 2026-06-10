@@ -1,141 +1,252 @@
 {% extends "base.html" %}
-{% block title %}Admin — Serenia Media{% endblock %}
+{% block title %}Admin — {{ site_name }}{% endblock %}
 {% block content %}
-<div class="page-header">
-    <h1><i class="fa-solid fa-shield-halved"></i> Admin Panel</h1>
+<div class="page-header"><h1><i class="fa-solid fa-shield-halved"></i> Admin Panel</h1></div>
+
+<!-- Admin Tabs -->
+<div class="settings-tabs" style="margin-bottom:1.5rem">
+  <button class="tab-btn active" onclick="showAdminTab('overview')"><i class="fa-solid fa-chart-bar"></i> Overview</button>
+  <button class="tab-btn" onclick="showAdminTab('branding')"><i class="fa-solid fa-palette"></i> Branding</button>
+  <button class="tab-btn" onclick="showAdminTab('theme')"><i class="fa-solid fa-brush"></i> Theme</button>
+  <button class="tab-btn" onclick="showAdminTab('legal')"><i class="fa-solid fa-file-lines"></i> Legal</button>
+  <button class="tab-btn" onclick="showAdminTab('security')"><i class="fa-solid fa-lock"></i> Security</button>
+  <button class="tab-btn" onclick="showAdminTab('storage')"><i class="fa-solid fa-broom"></i> Storage</button>
 </div>
 
-<div class="stats-grid">
+<!-- OVERVIEW TAB -->
+<div class="admin-tab active" id="atab-overview">
+  <div class="stats-grid">
     <div class="stat-card"><div class="stat-icon blue"><i class="fa-solid fa-users"></i></div><div class="stat-info"><div class="stat-value">{{ users }}</div><div class="stat-label">Total Users</div></div></div>
     <div class="stat-card"><div class="stat-icon sky"><i class="fa-solid fa-folder"></i></div><div class="stat-info"><div class="stat-value">{{ total_files }}</div><div class="stat-label">Active Files</div></div></div>
     <div class="stat-card"><div class="stat-icon teal"><i class="fa-solid fa-hard-drive"></i></div><div class="stat-info"><div class="stat-value">{{ total_storage|human_size }}</div><div class="stat-label">Storage Used</div></div></div>
     <div class="stat-card"><div class="stat-icon indigo"><i class="fa-solid fa-trash"></i></div><div class="stat-info"><div class="stat-value">{{ deleted_files }}</div><div class="stat-label">Deleted Files</div></div></div>
-</div>
-
-<!-- Type breakdown -->
-<div class="card">
-    <div class="card-header"><h3>Storage by Type</h3></div>
-    <div class="card-body">
+  </div>
+  <div class="admin-grid">
+    <div class="card">
+      <div class="card-header"><h3>Recent Users</h3><a href="{{ url_for('admin.users') }}" class="link-muted">View all</a></div>
+      <div class="card-body">
+        <ul class="compact-list">
+          {% for u in recent_users %}
+          <li class="compact-item">
+            {% if u.avatar_path %}<img src="/static/avatars/{{ u.avatar_path }}" class="user-avatar-sm" style="object-fit:cover">
+            {% else %}<div class="user-avatar-sm">{{ u.username[0].upper() }}</div>{% endif %}
+            <div><div class="compact-name">{{ u.username }}</div><div class="compact-meta">{{ u.email }}</div></div>
+            {% if u.is_admin %}<span class="badge badge-primary">Admin</span>{% endif %}
+          </li>
+          {% endfor %}
+        </ul>
+      </div>
+    </div>
+    <div class="card">
+      <div class="card-header"><h3>Storage by Type</h3></div>
+      <div class="card-body">
         <div class="type-bars">
-        {% for type, count, size in type_stats %}
-        <div class="type-bar-row">
+          {% for type, count, size in type_stats %}
+          <div class="type-bar-row">
             <div class="type-label">{{ type or 'other' }}</div>
             <div class="type-bar"><div class="type-bar-fill" style="width:{{ [count*10,100]|min }}%"></div></div>
-            <div class="type-count">{{ count }} files · {{ (size or 0)|human_size }}</div>
+            <div class="type-count">{{ count }} · {{ (size or 0)|human_size }}</div>
+          </div>
+          {% endfor %}
         </div>
-        {% endfor %}
-        </div>
+      </div>
     </div>
+  </div>
+  <div class="card" style="margin-top:1.25rem">
+    <div class="card-header"><h3>Quick Links</h3></div>
+    <div class="card-body" style="display:flex;gap:0.75rem;flex-wrap:wrap">
+      <a href="{{ url_for('admin.users') }}" class="btn-outline"><i class="fa-solid fa-users"></i> Manage Users</a>
+      <a href="{{ url_for('admin.files') }}" class="btn-outline"><i class="fa-solid fa-folder"></i> All Files</a>
+      <a href="{{ url_for('admin.logs') }}" class="btn-outline"><i class="fa-solid fa-list"></i> System Logs</a>
+      <a href="{{ url_for('admin.datavault') }}" class="btn-outline"><i class="fa-solid fa-database"></i> DataVault</a>
+    </div>
+  </div>
 </div>
 
-<!-- Storage Controls -->
-<div class="card danger-zone-card">
+<!-- BRANDING TAB -->
+<div class="admin-tab" id="atab-branding">
+  <div class="card">
+    <div class="card-header"><h3><i class="fa-solid fa-palette"></i> Branding & Landing Page</h3></div>
+    <div class="card-body">
+      <form method="POST" action="{{ url_for('admin.save_settings') }}" enctype="multipart/form-data">
+        <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+        <input type="hidden" name="action" value="branding">
+        <div class="form-group"><label>Site Name</label><input type="text" name="site_name" value="{{ settings.site_name }}"></div>
+        <div class="form-group">
+          <label>Logo Image</label>
+          {% if settings.logo_path %}<div style="margin-bottom:0.5rem"><img src="/static/brand/{{ settings.logo_path }}" height="40" style="border-radius:6px"></div>{% endif %}
+          <input type="file" name="logo" accept="image/*">
+        </div>
+        <div class="form-group">
+          <label>Favicon</label>
+          {% if settings.favicon_path %}<div style="margin-bottom:0.5rem"><img src="/static/brand/{{ settings.favicon_path }}" height="32"></div>{% endif %}
+          <input type="file" name="favicon" accept="image/*,.ico">
+        </div>
+        <div class="form-group"><label>Landing Page Hero Title</label><input type="text" name="landing_hero_title" value="{{ settings.landing_hero_title }}" placeholder="Share files with serenity."></div>
+        <div class="form-group"><label>Landing Page Hero Description</label><textarea name="landing_hero_desc" rows="3" placeholder="Describe your platform...">{{ settings.landing_hero_desc }}</textarea></div>
+        <button type="submit" class="btn-primary">Save Branding</button>
+      </form>
+    </div>
+  </div>
+</div>
+
+<!-- THEME TAB -->
+<div class="admin-tab" id="atab-theme">
+  <div class="card">
+    <div class="card-header"><h3><i class="fa-solid fa-brush"></i> Theme Colors</h3></div>
+    <div class="card-body">
+      <form method="POST" action="{{ url_for('admin.save_settings') }}">
+        <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+        <input type="hidden" name="action" value="theme">
+        <div class="form-group">
+          <label>Primary Color (buttons, accents)</label>
+          <div style="display:flex;gap:0.75rem;align-items:center">
+            <input type="color" name="primary_color" value="{{ settings.primary_color }}" style="width:60px;height:40px;padding:2px;border-radius:8px;cursor:pointer">
+            <input type="text" id="primaryHex" value="{{ settings.primary_color }}" style="width:120px" oninput="document.querySelector('[name=primary_color]').value=this.value">
+          </div>
+        </div>
+        <div class="form-group">
+          <label>Secondary Color (hover states)</label>
+          <div style="display:flex;gap:0.75rem;align-items:center">
+            <input type="color" name="secondary_color" value="{{ settings.secondary_color or '#5ba3c9' }}" style="width:60px;height:40px;padding:2px;border-radius:8px;cursor:pointer">
+            <input type="text" value="{{ settings.secondary_color or '#5ba3c9' }}" style="width:120px" oninput="document.querySelector('[name=secondary_color]').value=this.value">
+          </div>
+        </div>
+        <div class="form-group">
+          <label>Background Color</label>
+          <div style="display:flex;gap:0.75rem;align-items:center">
+            <input type="color" name="bg_color" value="{{ settings.bg_color or '#f0f7fc' }}" style="width:60px;height:40px;padding:2px;border-radius:8px;cursor:pointer">
+            <input type="text" value="{{ settings.bg_color or '#f0f7fc' }}" style="width:120px" oninput="document.querySelector('[name=bg_color]').value=this.value">
+          </div>
+        </div>
+        <div class="theme-presets">
+          <p style="font-size:0.875rem;font-weight:600;margin-bottom:0.75rem">Quick Presets</p>
+          <div style="display:flex;gap:0.625rem;flex-wrap:wrap">
+            <button type="button" class="preset-btn" style="background:linear-gradient(135deg,#87CEEB,#5ba3c9)" onclick="applyPreset('#87CEEB','#5ba3c9','#f0f7fc')">Sky Blue</button>
+            <button type="button" class="preset-btn" style="background:linear-gradient(135deg,#a78bfa,#7c3aed)" onclick="applyPreset('#a78bfa','#7c3aed','#f5f3ff')">Purple</button>
+            <button type="button" class="preset-btn" style="background:linear-gradient(135deg,#6ee7b7,#059669)" onclick="applyPreset('#6ee7b7','#059669','#f0fdf4')">Emerald</button>
+            <button type="button" class="preset-btn" style="background:linear-gradient(135deg,#fca5a5,#dc2626)" onclick="applyPreset('#fca5a5','#dc2626','#fff5f5')">Rose</button>
+            <button type="button" class="preset-btn" style="background:linear-gradient(135deg,#fcd34d,#d97706)" onclick="applyPreset('#fcd34d','#d97706','#fffbeb')">Amber</button>
+            <button type="button" class="preset-btn" style="background:linear-gradient(135deg,#93c5fd,#2563eb)" onclick="applyPreset('#93c5fd','#2563eb','#eff6ff')">Ocean</button>
+          </div>
+        </div>
+        <button type="submit" class="btn-primary" style="margin-top:1.25rem">Apply Theme</button>
+      </form>
+    </div>
+  </div>
+</div>
+
+<!-- LEGAL TAB -->
+<div class="admin-tab" id="atab-legal">
+  <div class="card">
+    <div class="card-header"><h3><i class="fa-solid fa-file-lines"></i> Privacy Policy & Terms</h3></div>
+    <div class="card-body">
+      <form method="POST" action="{{ url_for('admin.save_settings') }}">
+        <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+        <input type="hidden" name="action" value="legal">
+        <div class="form-group"><label>Privacy Policy (HTML allowed)</label><textarea name="privacy_policy" rows="10" placeholder="Enter your privacy policy...">{{ settings.privacy_policy }}</textarea></div>
+        <div class="form-group"><label>Terms of Use (HTML allowed)</label><textarea name="terms_of_use" rows="10" placeholder="Enter your terms of use...">{{ settings.terms_of_use }}</textarea></div>
+        <button type="submit" class="btn-primary">Save Legal Pages</button>
+      </form>
+    </div>
+  </div>
+</div>
+
+<!-- SECURITY TAB -->
+<div class="admin-tab" id="atab-security">
+  <div class="card">
+    <div class="card-header"><h3><i class="fa-solid fa-lock"></i> Change Admin Password</h3></div>
+    <div class="card-body">
+      <form method="POST" action="{{ url_for('admin.change_own_password') }}">
+        <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+        <div class="form-group"><label>Current Password</label><input type="password" name="current_password" required placeholder="••••••••"></div>
+        <div class="form-group"><label>New Password</label><input type="password" name="new_password" required placeholder="Min 8 characters" minlength="8"></div>
+        <div class="form-group"><label>Confirm New Password</label><input type="password" name="confirm_password" required placeholder="Repeat new password"></div>
+        <button type="submit" class="btn-primary">Update Password</button>
+      </form>
+    </div>
+  </div>
+</div>
+
+<!-- STORAGE TAB -->
+<div class="admin-tab" id="atab-storage">
+  <div class="card">
     <div class="card-header"><h3><i class="fa-solid fa-broom"></i> Storage Controls</h3></div>
     <div class="card-body admin-controls">
-        <div class="admin-control-item">
-            <div>
-                <h4>Clean Storage</h4>
-                <p>Remove deleted files, expired share links, and temp files.</p>
-            </div>
-            <button class="btn-outline" onclick="cleanStorage()"><i class="fa-solid fa-broom"></i> Clean Storage</button>
-        </div>
-        <div class="admin-control-item danger">
-            <div>
-                <h4>Delete All Media</h4>
-                <p>Permanently delete ALL uploaded files. This cannot be undone.</p>
-            </div>
-            <button class="btn-danger" onclick="deleteAllMedia()"><i class="fa-solid fa-triangle-exclamation"></i> Delete All Media</button>
-        </div>
+      <div class="admin-control-item">
+        <div><h4>Clean Storage</h4><p>Remove soft-deleted files, expired share links, and orphaned data.</p></div>
+        <button class="btn-outline" onclick="cleanStorage()"><i class="fa-solid fa-broom"></i> Clean Storage</button>
+      </div>
+      <div class="admin-control-item danger">
+        <div><h4>Delete All Media</h4><p>Permanently delete ALL uploaded files from ALL users. Cannot be undone.</p></div>
+        <button class="btn-danger" onclick="deleteAllMedia()"><i class="fa-solid fa-triangle-exclamation"></i> Delete All Media</button>
+      </div>
     </div>
+  </div>
 </div>
 
-<div class="admin-grid">
-    <div class="card">
-        <div class="card-header"><h3>Recent Users</h3><a href="{{ url_for('admin.users') }}" class="link-muted">View all</a></div>
-        <div class="card-body">
-            <ul class="compact-list">
-                {% for u in recent_users %}
-                <li class="compact-item">
-                    <div class="user-avatar-sm">{{ u.username[0].upper() }}</div>
-                    <div><div class="compact-name">{{ u.username }}</div><div class="compact-meta">{{ u.email }} · {{ u.created_at|timeago }}</div></div>
-                    {% if u.is_admin %}<span class="badge badge-primary">Admin</span>{% endif %}
-                </li>
-                {% endfor %}
-            </ul>
-        </div>
-    </div>
-    <div class="card">
-        <div class="card-header"><h3>Recent Files</h3><a href="{{ url_for('admin.files') }}" class="link-muted">View all</a></div>
-        <div class="card-body">
-            <ul class="compact-list">
-                {% for f in recent_files %}
-                <li class="compact-item">
-                    <div class="file-icon file-{{ f.file_type }}"><i class="fa-solid {{ f.icon_class() }}"></i></div>
-                    <div><div class="compact-name">{{ f.original_filename }}</div><div class="compact-meta">{{ f.size_human() }} · {{ f.created_at|timeago }}</div></div>
-                </li>
-                {% endfor %}
-            </ul>
-        </div>
-    </div>
-</div>
-
-<!-- Confirm modal -->
+<!-- Confirm Modal -->
 <div class="modal" id="confirmModal">
-    <div class="modal-backdrop"></div>
-    <div class="modal-content">
-        <div class="modal-header"><h3 id="confirmTitle">Confirm</h3></div>
-        <div class="modal-body">
-            <p id="confirmMsg"></p>
-            <div id="confirmInput"></div>
-            <div class="modal-actions">
-                <button class="btn-outline" onclick="closeModal('confirmModal')">Cancel</button>
-                <button class="btn-danger" id="confirmBtn">Confirm</button>
-            </div>
-        </div>
+  <div class="modal-backdrop"></div>
+  <div class="modal-content">
+    <div class="modal-header"><h3 id="confirmTitle">Confirm</h3></div>
+    <div class="modal-body">
+      <p id="confirmMsg"></p>
+      <div id="confirmInput"></div>
+      <div class="modal-actions">
+        <button class="btn-outline" onclick="closeModal('confirmModal')">Cancel</button>
+        <button class="btn-danger" id="confirmBtn">Confirm</button>
+      </div>
     </div>
+  </div>
 </div>
-
-<div id="cleanResult" class="alert" style="display:none"></div>
 {% endblock %}
 {% block extra_js %}
 <script>
+function showAdminTab(name) {
+  document.querySelectorAll('.admin-tab').forEach(t => t.classList.remove('active'));
+  document.querySelectorAll('.tab-btn').forEach(b => b.classList.remove('active'));
+  document.getElementById('atab-' + name).classList.add('active');
+  event.currentTarget.classList.add('active');
+  if (window.location.hash) history.replaceState(null, '', window.location.pathname);
+}
+// check hash on load
+window.addEventListener('load', () => {
+  const h = window.location.hash.replace('#','');
+  if (h) { const btn = [...document.querySelectorAll('.tab-btn')].find(b => b.getAttribute('onclick')?.includes(h)); if(btn) btn.click(); }
+});
+function applyPreset(p, s, b) {
+  document.querySelector('[name=primary_color]').value = p;
+  document.querySelector('[name=secondary_color]').value = s;
+  document.querySelector('[name=bg_color]').value = b;
+  document.querySelectorAll('input[type=text]')[0].value = p;
+}
 async function cleanStorage() {
-    document.getElementById('confirmTitle').textContent = 'Clean Storage';
-    document.getElementById('confirmMsg').textContent = 'This will remove all soft-deleted files and expired share links. Continue?';
-    document.getElementById('confirmInput').innerHTML = '';
-    document.getElementById('confirmModal').classList.add('open');
-    document.getElementById('confirmBtn').onclick = async () => {
-        closeModal('confirmModal');
-        const r = await fetch('{{ url_for("admin.clean_storage") }}', {method:'POST'});
-        const data = await r.json();
-        if (data.ok) {
-            showToast(`Cleaned! Freed ${humanSize(data.freed)}, removed ${data.deleted_files} files and ${data.removed_shares} shares.`, 'success');
-        }
-    };
+  document.getElementById('confirmTitle').textContent = 'Clean Storage';
+  document.getElementById('confirmMsg').textContent = 'Remove deleted files and expired share links?';
+  document.getElementById('confirmInput').innerHTML = '';
+  document.getElementById('confirmModal').classList.add('open');
+  document.getElementById('confirmBtn').onclick = async () => {
+    closeModal('confirmModal');
+    const r = await fetch('{{ url_for("admin.clean_storage") }}', {method:'POST'});
+    const d = await r.json();
+    if (d.ok) showToast(`Freed ${humanSize(d.freed)}, removed ${d.deleted_files} files & ${d.removed_shares} shares.`, 'success');
+  };
 }
-
 async function deleteAllMedia() {
-    document.getElementById('confirmTitle').textContent = '⚠️ Delete ALL Media';
-    document.getElementById('confirmMsg').textContent = 'This will permanently delete ALL files from all users. Type "DELETE ALL MEDIA" to confirm.';
-    document.getElementById('confirmInput').innerHTML = '<input type="text" id="deleteConfirmInput" placeholder="DELETE ALL MEDIA" class="danger-input">';
-    document.getElementById('confirmModal').classList.add('open');
-    document.getElementById('confirmBtn').onclick = async () => {
-        const val = document.getElementById('deleteConfirmInput').value;
-        if (val !== 'DELETE ALL MEDIA') { showToast('Incorrect confirmation text', 'error'); return; }
-        closeModal('confirmModal');
-        const r = await fetch('{{ url_for("admin.delete_all_media") }}', {
-            method:'POST', headers:{'Content-Type':'application/json'},
-            body: JSON.stringify({confirm:'DELETE ALL MEDIA'})
-        });
-        const data = await r.json();
-        if (data.ok) showToast(`Deleted ${data.deleted} files.`, 'success');
-        else showToast(data.error, 'error');
-    };
+  document.getElementById('confirmTitle').textContent = '⚠️ Delete ALL Media';
+  document.getElementById('confirmMsg').textContent = 'Type DELETE ALL MEDIA to confirm permanent deletion of all files.';
+  document.getElementById('confirmInput').innerHTML = '<input type="text" id="dci" placeholder="DELETE ALL MEDIA" class="danger-input" style="margin-top:0.75rem">';
+  document.getElementById('confirmModal').classList.add('open');
+  document.getElementById('confirmBtn').onclick = async () => {
+    if (document.getElementById('dci').value !== 'DELETE ALL MEDIA') { showToast('Incorrect text','error'); return; }
+    closeModal('confirmModal');
+    const r = await fetch('{{ url_for("admin.delete_all_media") }}', {method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({confirm:'DELETE ALL MEDIA'})});
+    const d = await r.json();
+    if (d.ok) showToast(`Deleted ${d.deleted} files.`,'success');
+    else showToast(d.error,'error');
+  };
 }
-
-function humanSize(b) {
-    if(b<1024)return b+' B'; if(b<1048576)return (b/1024).toFixed(1)+' KB';
-    if(b<1073741824)return (b/1048576).toFixed(1)+' MB'; return (b/1073741824).toFixed(1)+' GB';
-}
+function humanSize(b){if(b<1024)return b+' B';if(b<1048576)return (b/1024).toFixed(1)+' KB';if(b<1073741824)return (b/1048576).toFixed(1)+' MB';return (b/1073741824).toFixed(1)+' GB';}
 </script>
 {% endblock %}

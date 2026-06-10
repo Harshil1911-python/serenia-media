@@ -1,67 +1,95 @@
 {% extends "base.html" %}
-{% block title %}Admin Users — Serenia Media{% endblock %}
+{% block title %}Users — {{ site_name }}{% endblock %}
 {% block content %}
-<div class="page-header">
-    <h1>Users</h1>
-    <span class="badge">{{ users.total }} total</span>
-</div>
+<div class="page-header"><h1>Users</h1><span class="badge">{{ users.total }} total</span></div>
 <form class="toolbar" method="get">
-    <div class="toolbar-search">
-        <i class="fa-solid fa-magnifying-glass"></i>
-        <input type="text" name="q" value="{{ q }}" placeholder="Search users…">
-    </div>
-    <button type="submit" class="btn-primary btn-sm">Search</button>
+  <div class="toolbar-search"><i class="fa-solid fa-magnifying-glass"></i><input type="text" name="q" value="{{ q }}" placeholder="Search users…"></div>
+  <button type="submit" class="btn-primary btn-sm">Search</button>
 </form>
 <div class="table-wrapper">
-    <table class="data-table">
-        <thead><tr><th>User</th><th>Email</th><th>Storage</th><th>Joined</th><th>Status</th><th>Actions</th></tr></thead>
-        <tbody>
-        {% for u in users.items %}
-        <tr>
-            <td>
-                <div class="user-cell">
-                    <div class="user-avatar-sm">{{ u.username[0].upper() }}</div>
-                    <div><strong>{{ u.username }}</strong> {% if u.is_admin %}<span class="badge badge-primary">Admin</span>{% endif %}</div>
-                </div>
-            </td>
-            <td>{{ u.email }}</td>
-            <td>{{ u.storage_used|human_size }} / {{ u.storage_limit|human_size }}</td>
-            <td>{{ u.created_at|timeago }}</td>
-            <td><span class="badge {{ 'badge-success' if u.is_active else 'badge-error' }}">{{ 'Active' if u.is_active else 'Disabled' }}</span></td>
-            <td>
-                <div class="action-row">
-                    {% if u.id != current_user.id %}
-                    <button class="btn-icon-sm" onclick="toggleUser({{ u.id }}, this)" title="{{ 'Disable' if u.is_active else 'Enable' }}">
-                        <i class="fa-solid {{ 'fa-ban' if u.is_active else 'fa-check' }}"></i>
-                    </button>
-                    <button class="btn-icon-sm btn-danger-hover" onclick="deleteUser({{ u.id }}, this)" title="Delete"><i class="fa-solid fa-trash"></i></button>
-                    {% endif %}
-                </div>
-            </td>
-        </tr>
-        {% endfor %}
-        </tbody>
-    </table>
+  <table class="data-table">
+    <thead><tr><th>User</th><th>Email</th><th>Storage</th><th>Joined</th><th>Status</th><th>Actions</th></tr></thead>
+    <tbody>
+    {% for u in users.items %}
+    <tr>
+      <td>
+        <div class="user-cell">
+          {% if u.avatar_path %}<img src="/static/avatars/{{ u.avatar_path }}" class="user-avatar-sm" style="object-fit:cover">
+          {% else %}<div class="user-avatar-sm">{{ u.username[0].upper() }}</div>{% endif %}
+          <div><strong>{{ u.username }}</strong> {% if u.is_admin %}<span class="badge badge-primary">Admin</span>{% endif %}</div>
+        </div>
+      </td>
+      <td>{{ u.email }}</td>
+      <td>
+        <div style="display:flex;align-items:center;gap:0.5rem">
+          <span>{{ u.storage_used|human_size }} / {{ u.storage_limit|human_size }}</span>
+          <button class="btn-icon-sm" onclick="setStoragePrompt({{ u.id }},'{{ u.username }}')" title="Change storage"><i class="fa-solid fa-pen"></i></button>
+        </div>
+      </td>
+      <td>{{ u.created_at|timeago }}</td>
+      <td><span class="badge {{ 'badge-success' if u.is_active else 'badge-error' }}">{{ 'Active' if u.is_active else 'Disabled' }}</span></td>
+      <td>
+        <div class="action-row">
+          <button class="btn-icon-sm" onclick="setPasswordPrompt({{ u.id }},'{{ u.username }}')" title="Reset password"><i class="fa-solid fa-key"></i></button>
+          {% if u.id != current_user.id %}
+          <button class="btn-icon-sm" onclick="toggleUser({{ u.id }},this)" title="{{ 'Disable' if u.is_active else 'Enable' }}"><i class="fa-solid {{ 'fa-ban' if u.is_active else 'fa-check' }}"></i></button>
+          <button class="btn-icon-sm btn-danger-hover" onclick="deleteUser({{ u.id }},this)" title="Delete"><i class="fa-solid fa-trash"></i></button>
+          {% endif %}
+        </div>
+      </td>
+    </tr>
+    {% endfor %}
+    </tbody>
+  </table>
 </div>
 {% if users.pages > 1 %}
 <div class="pagination">
-    {% if users.has_prev %}<a href="?page={{ users.prev_num }}&q={{ q }}" class="btn-outline btn-sm">← Prev</a>{% endif %}
-    <span class="page-info">Page {{ users.page }} of {{ users.pages }}</span>
-    {% if users.has_next %}<a href="?page={{ users.next_num }}&q={{ q }}" class="btn-outline btn-sm">Next →</a>{% endif %}
+  {% if users.has_prev %}<a href="?page={{ users.prev_num }}&q={{ q }}" class="btn-outline btn-sm">← Prev</a>{% endif %}
+  <span class="page-info">Page {{ users.page }} of {{ users.pages }}</span>
+  {% if users.has_next %}<a href="?page={{ users.next_num }}&q={{ q }}" class="btn-outline btn-sm">Next →</a>{% endif %}
 </div>
 {% endif %}
+
+<!-- Storage Modal -->
+<div class="modal" id="storageModal">
+  <div class="modal-backdrop" onclick="closeModal('storageModal')"></div>
+  <div class="modal-content">
+    <div class="modal-header"><h3>Set Storage Limit</h3><button onclick="closeModal('storageModal')"><i class="fa-solid fa-xmark"></i></button></div>
+    <div class="modal-body">
+      <p id="smu" style="margin-bottom:1rem;color:var(--text-muted)"></p>
+      <div class="form-group"><label>Storage (GB)</label><input type="number" id="sgb" value="1" min="0.1" step="0.5"></div>
+      <button class="btn-primary btn-full" onclick="submitStorage()">Set Limit</button>
+    </div>
+  </div>
+</div>
+
+<!-- Password Modal -->
+<div class="modal" id="pwModal">
+  <div class="modal-backdrop" onclick="closeModal('pwModal')"></div>
+  <div class="modal-content">
+    <div class="modal-header"><h3>Reset Password</h3><button onclick="closeModal('pwModal')"><i class="fa-solid fa-xmark"></i></button></div>
+    <div class="modal-body">
+      <p id="pwu" style="margin-bottom:1rem;color:var(--text-muted)"></p>
+      <div class="form-group"><label>New Password</label><input type="password" id="npw" placeholder="Min 8 characters" minlength="8"></div>
+      <button class="btn-primary btn-full" onclick="submitPw()">Set Password</button>
+    </div>
+  </div>
+</div>
 {% endblock %}
 {% block extra_js %}
 <script>
-async function toggleUser(id, btn) {
-    const r = await fetch(`/admin/users/${id}/toggle`, {method:'POST'});
-    const data = await r.json();
-    if (data.ok) { showToast(`User ${data.active ? 'enabled' : 'disabled'}`, 'success'); setTimeout(()=>location.reload(),800); }
+let tuid = null;
+function setStoragePrompt(uid,n){tuid=uid;document.getElementById('smu').textContent='User: '+n;document.getElementById('storageModal').classList.add('open');}
+function setPasswordPrompt(uid,n){tuid=uid;document.getElementById('pwu').textContent='User: '+n;document.getElementById('npw').value='';document.getElementById('pwModal').classList.add('open');}
+async function submitStorage(){
+  const r=await fetch(`/admin/users/${tuid}/storage`,{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({gb:parseFloat(document.getElementById('sgb').value)})});
+  const d=await r.json();if(d.ok){showToast('Storage set to '+d.limit,'success');closeModal('storageModal');setTimeout(()=>location.reload(),800);}else showToast(d.error,'error');
 }
-async function deleteUser(id, btn) {
-    if (!confirm('Permanently delete this user and all their data?')) return;
-    const r = await fetch(`/admin/users/${id}/delete`, {method:'POST'});
-    if ((await r.json()).ok) { btn.closest('tr').remove(); showToast('User deleted','success'); }
+async function submitPw(){
+  const r=await fetch(`/admin/users/${tuid}/password`,{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({password:document.getElementById('npw').value})});
+  const d=await r.json();if(d.ok){showToast('Password updated','success');closeModal('pwModal');}else showToast(d.error,'error');
 }
+async function toggleUser(uid,btn){const r=await fetch(`/admin/users/${uid}/toggle`,{method:'POST'});const d=await r.json();if(d.ok){showToast(`User ${d.active?'enabled':'disabled'}`,'success');setTimeout(()=>location.reload(),800);}}
+async function deleteUser(uid,btn){if(!confirm('Delete this user and all their data?'))return;const r=await fetch(`/admin/users/${uid}/delete`,{method:'POST'});if((await r.json()).ok){btn.closest('tr').remove();showToast('User deleted','success');}}
 </script>
 {% endblock %}

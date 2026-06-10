@@ -1,84 +1,67 @@
 {% extends "base.html" %}
-{% block title %}Serenia Media — Secure File Sharing{% endblock %}
+{% block title %}{{ site_name }} — Secure File Sharing{% endblock %}
 {% block content %}
 <div class="landing">
-    <nav class="landing-nav">
-        <a href="{{ url_for('main.index') }}" class="logo-link">
-            <div class="logo-icon"><i class="fa-solid fa-cloud"></i></div>
-            <span class="logo-text">Serenia Media</span>
-        </a>
-        <div class="landing-nav-links">
-            <a href="{{ url_for('auth.login') }}" class="btn-outline">Sign In</a>
-            <a href="{{ url_for('auth.register') }}" class="btn-primary">Get Started</a>
-        </div>
-    </nav>
+  <nav class="landing-nav">
+    <a href="{{ url_for('main.index') }}" class="logo-link">
+      {% if logo_path %}<img src="/static/brand/{{ logo_path }}" class="logo-img" alt="{{ site_name }}">
+      {% else %}<div class="logo-icon"><i class="fa-solid fa-cloud"></i></div>{% endif %}
+      <span class="logo-text">{{ site_name }}</span>
+    </a>
+    <div class="landing-nav-links">
+      <a href="{{ url_for('auth.login') }}" class="btn-outline">Sign In</a>
+      <a href="{{ url_for('auth.register') }}" class="btn-primary">Get Started</a>
+    </div>
+  </nav>
 
-    <section class="hero">
-        <div class="hero-content">
-            <h1 class="hero-title">Share files with<br><span class="gradient-text">serenity.</span></h1>
-            <p class="hero-desc">A beautiful, secure media platform for uploading, storing, and sharing your files. Images, videos, audio, documents — everything in one place.</p>
-            <div class="hero-cta">
-                <a href="{{ url_for('auth.register') }}" class="btn-primary btn-lg">Start for Free</a>
-                <a href="{{ url_for('auth.login') }}" class="btn-outline btn-lg">Sign In</a>
-            </div>
+  <section class="hero">
+    <div class="hero-content">
+      <h1 class="hero-title">
+        {% if settings.landing_hero_title %}{{ settings.landing_hero_title }}
+        {% else %}Share files with<br><span class="gradient-text">serenity.</span>{% endif %}
+      </h1>
+      <p class="hero-desc">
+        {% if settings.landing_hero_desc %}{{ settings.landing_hero_desc }}
+        {% else %}A beautiful, secure platform for uploading, storing, and sharing your files. Images, videos, audio, documents — everything in one place.{% endif %}
+      </p>
+      <div class="hero-cta">
+        <a href="{{ url_for('auth.register') }}" class="btn-primary btn-lg">Start for Free</a>
+        <a href="{{ url_for('auth.login') }}" class="btn-outline btn-lg">Sign In</a>
+      </div>
+    </div>
+    <div class="hero-visual">
+      <div class="hero-card">
+        <div class="hero-card-header"><div class="hc-dot red"></div><div class="hc-dot yellow"></div><div class="hc-dot green"></div></div>
+        <div class="hero-card-files">
+          <div class="hc-file"><i class="fa-solid fa-image"></i><span>photo.jpg</span><span class="hc-size">2.4 MB</span></div>
+          <div class="hc-file"><i class="fa-solid fa-video"></i><span>clip.mp4</span><span class="hc-size">18 MB</span></div>
+          <div class="hc-file"><i class="fa-solid fa-music"></i><span>track.mp3</span><span class="hc-size">5.1 MB</span></div>
+          <div class="hc-file"><i class="fa-solid fa-file-pdf"></i><span>report.pdf</span><span class="hc-size">1.2 MB</span></div>
         </div>
-        <div class="hero-visual">
-            <div class="hero-card">
-                <div class="hero-card-header">
-                    <div class="hc-dot red"></div><div class="hc-dot yellow"></div><div class="hc-dot green"></div>
-                </div>
-                <div class="hero-card-files">
-                    <div class="hc-file"><i class="fa-solid fa-image"></i><span>photo.jpg</span><span class="hc-size">2.4 MB</span></div>
-                    <div class="hc-file"><i class="fa-solid fa-video"></i><span>clip.mp4</span><span class="hc-size">18 MB</span></div>
-                    <div class="hc-file"><i class="fa-solid fa-music"></i><span>track.mp3</span><span class="hc-size">5.1 MB</span></div>
-                    <div class="hc-file"><i class="fa-solid fa-file-pdf"></i><span>report.pdf</span><span class="hc-size">1.2 MB</span></div>
-                </div>
-                <div class="hc-bar">
-                    <div class="hc-bar-fill" style="width:42%"></div>
-                </div>
-                <div class="hc-bar-label">420 MB / 1 GB used</div>
-            </div>
-        </div>
-    </section>
+        <div class="hc-bar"><div class="hc-bar-fill" style="width:42%"></div></div>
+        <div class="hc-bar-label">420 MB / 1 GB used</div>
+      </div>
+    </div>
+  </section>
 
-    <section class="features">
-        <h2 class="section-title">Everything you need</h2>
-        <div class="features-grid">
-            <div class="feature-card">
-                <div class="feature-icon"><i class="fa-solid fa-lock"></i></div>
-                <h3>Secure Sharing</h3>
-                <p>Share files with expiring links, password protection, and access limits.</p>
-            </div>
-            <div class="feature-card">
-                <div class="feature-icon"><i class="fa-solid fa-eye"></i></div>
-                <h3>Instant Preview</h3>
-                <p>Preview images, videos, audio, PDFs and text files right in the browser.</p>
-            </div>
-            <div class="feature-card">
-                <div class="feature-icon"><i class="fa-solid fa-bolt"></i></div>
-                <h3>Fast Uploads</h3>
-                <p>Drag & drop multiple files at once with real-time progress tracking.</p>
-            </div>
-            <div class="feature-card">
-                <div class="feature-icon"><i class="fa-solid fa-qrcode"></i></div>
-                <h3>QR Code Links</h3>
-                <p>Generate QR codes for any shared file for instant mobile access.</p>
-            </div>
-            <div class="feature-card">
-                <div class="feature-icon"><i class="fa-solid fa-chart-pie"></i></div>
-                <h3>Analytics</h3>
-                <p>Track downloads, views, shares and storage with beautiful charts.</p>
-            </div>
-            <div class="feature-card">
-                <div class="feature-icon"><i class="fa-solid fa-code"></i></div>
-                <h3>Text Snippets</h3>
-                <p>Create and share copyable text snippets with syntax highlighting.</p>
-            </div>
-        </div>
-    </section>
+  <section class="features">
+    <h2 class="section-title">Everything you need</h2>
+    <div class="features-grid">
+      <div class="feature-card"><div class="feature-icon"><i class="fa-solid fa-lock"></i></div><h3>Secure Sharing</h3><p>Share with expiring links, access limits, and user-to-user sharing.</p></div>
+      <div class="feature-card"><div class="feature-icon"><i class="fa-solid fa-eye"></i></div><h3>Instant Preview</h3><p>Preview images, videos, audio, PDFs and text right in the browser.</p></div>
+      <div class="feature-card"><div class="feature-icon"><i class="fa-solid fa-bolt"></i></div><h3>Fast Uploads</h3><p>Drag & drop multiple files with real-time progress tracking.</p></div>
+      <div class="feature-card"><div class="feature-icon"><i class="fa-solid fa-qrcode"></i></div><h3>QR Code Links</h3><p>Generate QR codes for any shared file for instant mobile access.</p></div>
+      <div class="feature-card"><div class="feature-icon"><i class="fa-solid fa-users"></i></div><h3>User Sharing</h3><p>Share files directly with other users by username.</p></div>
+      <div class="feature-card"><div class="feature-icon"><i class="fa-solid fa-code"></i></div><h3>Text Snippets</h3><p>Create and share copyable text snippets with one click.</p></div>
+    </div>
+  </section>
 
-    <footer class="landing-footer">
-        <p>&copy; 2024 Serenia Media. Built with care.</p>
-    </footer>
+  <footer class="landing-footer">
+    <p>&copy; 2024 {{ site_name }}.</p>
+    <div style="margin-top:0.5rem">
+      <a href="{{ url_for('main.privacy') }}">Privacy Policy</a> ·
+      <a href="{{ url_for('main.terms') }}">Terms of Use</a>
+    </div>
+  </footer>
 </div>
 {% endblock %}

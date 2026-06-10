@@ -1,247 +1,245 @@
 {% extends "base.html" %}
-{% block title %}{{ file.original_filename }} — Serenia Media{% endblock %}
+{% block title %}{{ file.original_filename }} — {{ site_name }}{% endblock %}
 {% block content %}
 <div class="page-header">
-    <div class="breadcrumb">
-        <a href="{{ url_for('files.list_files') }}">My Files</a>
-        <i class="fa-solid fa-chevron-right"></i>
-        <span>{{ file.original_filename }}</span>
-    </div>
-    <div class="header-actions">
-        <a href="{{ url_for('files.download', file_id=file.id) }}" class="btn-primary"><i class="fa-solid fa-download"></i> Download</a>
-        <button class="btn-outline" onclick="shareFile()"><i class="fa-solid fa-share-nodes"></i> Share</button>
-        <button class="btn-outline {{ 'active' if is_fav }}" onclick="toggleFav()" id="favBtn">
-            <i class="fa-{{ 'solid' if is_fav else 'regular' }} fa-star" id="favIcon"></i>
-        </button>
-    </div>
+  <div class="breadcrumb">
+    <a href="{{ url_for('files.list_files') }}">My Files</a>
+    <i class="fa-solid fa-chevron-right"></i>
+    <span>{{ file.original_filename }}</span>
+  </div>
+  <div class="header-actions">
+    <a href="{{ url_for('files.download', file_id=file.id) }}" class="btn-primary"><i class="fa-solid fa-download"></i> Download</a>
+    <button class="btn-outline" onclick="openShareModal()"><i class="fa-solid fa-share-nodes"></i> Share</button>
+    <button class="btn-outline" onclick="openShareUserModal()"><i class="fa-solid fa-user-plus"></i> Share with User</button>
+    <button class="btn-outline {{ 'active' if is_fav }}" onclick="toggleFav()" id="favBtn">
+      <i class="fa-{{ 'solid' if is_fav else 'regular' }} fa-star" id="favIcon"></i>
+    </button>
+  </div>
 </div>
 
 <div class="detail-layout">
-    <!-- Preview pane -->
-    <div class="preview-pane">
-        {% if file.file_type == 'image' %}
-        <div class="preview-image">
-            <img src="{{ url_for('files.preview', file_id=file.id) }}" alt="{{ file.original_filename }}">
+  <div class="preview-pane">
+    {% if file.file_type == 'image' %}
+    <div class="preview-image"><img src="{{ url_for('files.preview', file_id=file.id) }}" alt="{{ file.original_filename }}"></div>
+    {% elif file.file_type == 'video' %}
+    <div class="preview-video"><video controls preload="metadata"><source src="{{ url_for('files.preview', file_id=file.id) }}" type="{{ file.mime_type }}">Your browser does not support video.</video></div>
+    {% elif file.file_type == 'audio' %}
+    <div class="preview-audio">
+      <div class="audio-card">
+        <div class="audio-icon"><i class="fa-solid fa-music"></i></div>
+        <div class="audio-filename">{{ file.original_filename }}</div>
+        <audio controls><source src="{{ url_for('files.preview', file_id=file.id) }}" type="{{ file.mime_type }}"></audio>
+      </div>
+    </div>
+    {% elif file.extension == 'pdf' %}
+    <div class="preview-pdf"><iframe src="{{ url_for('files.preview', file_id=file.id) }}" width="100%" height="600px"></iframe></div>
+    {% elif file.file_type == 'text' %}
+    <div class="preview-text" id="textPreview"><div style="padding:2rem;color:var(--text-muted)"><i class="fa-solid fa-spinner fa-spin"></i> Loading…</div></div>
+    {% else %}
+    <div class="preview-unavailable">
+      <div class="file-icon-xl file-{{ file.file_type }}"><i class="fa-solid {{ file.icon_class() }}"></i></div>
+      <p>Preview not available.</p>
+      <a href="{{ url_for('files.download', file_id=file.id) }}" class="btn-primary">Download to View</a>
+    </div>
+    {% endif %}
+  </div>
+
+  <div class="info-pane">
+    <div class="card">
+      <div class="card-header"><h3>File Details</h3></div>
+      <div class="card-body">
+        <div class="detail-row editable-name">
+          <div class="detail-label">Name</div>
+          <div class="detail-value" id="fileName">{{ file.original_filename }}</div>
+          <button class="btn-icon-sm" onclick="editName()"><i class="fa-solid fa-pen"></i></button>
         </div>
-        {% elif file.file_type == 'video' %}
-        <div class="preview-video">
-            <video controls preload="metadata">
-                <source src="{{ url_for('files.preview', file_id=file.id) }}" type="{{ file.mime_type }}">
-                Your browser does not support the video tag.
-            </video>
-        </div>
-        {% elif file.file_type == 'audio' %}
-        <div class="preview-audio">
-            <div class="audio-card">
-                <div class="audio-icon"><i class="fa-solid fa-music"></i></div>
-                <div class="audio-filename">{{ file.original_filename }}</div>
-                <audio controls>
-                    <source src="{{ url_for('files.preview', file_id=file.id) }}" type="{{ file.mime_type }}">
-                </audio>
-            </div>
-        </div>
-        {% elif file.extension == 'pdf' %}
-        <div class="preview-pdf">
-            <iframe src="{{ url_for('files.preview', file_id=file.id) }}" width="100%" height="600px"></iframe>
-        </div>
-        {% elif file.file_type == 'text' %}
-        <div class="preview-text" id="textPreview">
-            <div class="loading-text"><i class="fa-solid fa-spinner fa-spin"></i> Loading preview…</div>
-        </div>
-        {% else %}
-        <div class="preview-unavailable">
-            <div class="file-icon-xl file-{{ file.file_type }}"><i class="fa-solid {{ file.icon_class() }}"></i></div>
-            <p>Preview not available for this file type.</p>
-            <a href="{{ url_for('files.download', file_id=file.id) }}" class="btn-primary">Download to View</a>
-        </div>
-        {% endif %}
+        <div class="detail-row"><div class="detail-label">Type</div><div class="detail-value"><span class="badge badge-{{ file.file_type }}">{{ file.file_type }}</span></div></div>
+        <div class="detail-row"><div class="detail-label">Size</div><div class="detail-value">{{ file.size_human() }}</div></div>
+        <div class="detail-row"><div class="detail-label">Uploaded</div><div class="detail-value">{{ file.created_at.strftime('%b %d, %Y %H:%M') }}</div></div>
+        <div class="detail-row"><div class="detail-label">Downloads</div><div class="detail-value">{{ file.download_count }}</div></div>
+        <div class="detail-row"><div class="detail-label">Views</div><div class="detail-value">{{ file.view_count }}</div></div>
+      </div>
     </div>
 
-    <!-- Info pane -->
-    <div class="info-pane">
-        <div class="card">
-            <div class="card-header"><h3>File Details</h3></div>
-            <div class="card-body">
-                <div class="detail-row editable-name">
-                    <div class="detail-label">Name</div>
-                    <div class="detail-value" id="fileName">{{ file.original_filename }}</div>
-                    <button class="btn-icon-sm" onclick="editName()"><i class="fa-solid fa-pen"></i></button>
-                </div>
-                <div class="detail-row"><div class="detail-label">Type</div><div class="detail-value"><span class="badge badge-{{ file.file_type }}">{{ file.file_type }}</span></div></div>
-                <div class="detail-row"><div class="detail-label">Size</div><div class="detail-value">{{ file.size_human() }}</div></div>
-                <div class="detail-row"><div class="detail-label">Uploaded</div><div class="detail-value">{{ file.created_at.strftime('%b %d, %Y %H:%M') }}</div></div>
-                <div class="detail-row"><div class="detail-label">Downloads</div><div class="detail-value">{{ file.download_count }}</div></div>
-                <div class="detail-row"><div class="detail-label">Views</div><div class="detail-value">{{ file.view_count }}</div></div>
-            </div>
+    <div class="card">
+      <div class="card-header"><h3>Tags</h3></div>
+      <div class="card-body">
+        <div class="tags-display" id="tagsDisplay">
+          {% for tag in file.get_tags_list() %}<span class="tag">{{ tag }}</span>
+          {% else %}<span class="text-muted">No tags yet</span>{% endfor %}
         </div>
-
-        <!-- Tags -->
-        <div class="card">
-            <div class="card-header"><h3>Tags</h3></div>
-            <div class="card-body">
-                <div class="tags-display" id="tagsDisplay">
-                    {% for tag in file.get_tags_list() %}
-                    <span class="tag">{{ tag }}</span>
-                    {% else %}
-                    <span class="text-muted">No tags yet</span>
-                    {% endfor %}
-                </div>
-                <div class="tags-edit" id="tagsEdit" style="display:none">
-                    <input type="text" id="tagsInput" value="{{ file.tags or '' }}" placeholder="tag1, tag2, tag3">
-                    <button class="btn-primary btn-sm" onclick="saveTags()">Save</button>
-                    <button class="btn-outline btn-sm" onclick="cancelTagsEdit()">Cancel</button>
-                </div>
-                <button class="btn-outline btn-sm mt-sm" onclick="editTags()">Edit Tags</button>
-            </div>
+        <div class="tags-edit" id="tagsEdit" style="display:none">
+          <input type="text" id="tagsInput" value="{{ file.tags or '' }}" placeholder="tag1, tag2, tag3">
+          <button class="btn-primary btn-sm" onclick="saveTags()">Save</button>
+          <button class="btn-outline btn-sm" onclick="cancelTagsEdit()">Cancel</button>
         </div>
-
-        <!-- Share links -->
-        <div class="card">
-            <div class="card-header">
-                <h3>Share Links</h3>
-                <button class="btn-outline btn-sm" onclick="createShare()">+ New Link</button>
-            </div>
-            <div class="card-body">
-                {% if shares %}
-                <ul class="share-list">
-                    {% for share in shares %}
-                    <li class="share-item {{ 'expired' if share.is_expired() }}">
-                        <div class="share-info">
-                            <div class="share-token">{{ share.token[:16] }}…</div>
-                            <div class="share-meta">
-                                {{ share.access_count }} accesses ·
-                                {% if share.expires_at %}Expires {{ share.expires_at.strftime('%b %d') }}{% else %}No expiry{% endif %}
-                            </div>
-                        </div>
-                        <div class="share-actions">
-                            <button class="btn-icon-sm" onclick="copyLink('{{ url_for('files.shared_file', token=share.token, _external=True) }}')"><i class="fa-solid fa-copy"></i></button>
-                            <a href="{{ url_for('files.share_qr', token=share.token) }}" target="_blank" class="btn-icon-sm"><i class="fa-solid fa-qrcode"></i></a>
-                            <button class="btn-icon-sm btn-danger-hover" onclick="deleteShare({{ share.id }}, this)"><i class="fa-solid fa-trash"></i></button>
-                        </div>
-                    </li>
-                    {% endfor %}
-                </ul>
-                {% else %}
-                <p class="text-muted">No share links created.</p>
-                {% endif %}
-            </div>
-        </div>
-
-        <!-- Danger zone -->
-        <div class="card danger-card">
-            <div class="card-body">
-                <button class="btn-danger btn-full" onclick="deleteFile()"><i class="fa-solid fa-trash"></i> Delete File</button>
-            </div>
-        </div>
+        <button class="btn-outline btn-sm mt-sm" onclick="editTags()">Edit Tags</button>
+      </div>
     </div>
+
+    <div class="card">
+      <div class="card-header">
+        <h3>Share Links</h3>
+        <button class="btn-outline btn-sm" onclick="openShareModal()">+ New Link</button>
+      </div>
+      <div class="card-body">
+        {% if shares %}
+        <ul class="share-list">
+          {% for share in shares %}
+          <li class="share-item {{ 'expired' if share.is_expired() }}">
+            <div class="share-info">
+              <div class="share-token">{{ share.token[:16] }}…</div>
+              <div class="share-meta">{{ share.access_count }} accesses · {% if share.expires_at %}Expires {{ share.expires_at.strftime('%b %d') }}{% else %}No expiry{% endif %}</div>
+            </div>
+            <div class="share-actions">
+              <button class="btn-icon-sm" onclick="copyLink('{{ url_for('files.shared_file', token=share.token, _external=True) }}')"><i class="fa-solid fa-copy"></i></button>
+              <a href="{{ url_for('files.share_qr', token=share.token) }}" target="_blank" class="btn-icon-sm"><i class="fa-solid fa-qrcode"></i></a>
+              <button class="btn-icon-sm btn-danger-hover" onclick="deleteShare({{ share.id }}, this)"><i class="fa-solid fa-trash"></i></button>
+            </div>
+          </li>
+          {% endfor %}
+        </ul>
+        {% else %}<p class="text-muted">No share links yet.</p>{% endif %}
+      </div>
+    </div>
+
+    <div class="card danger-card">
+      <div class="card-body">
+        <button class="btn-danger btn-full" onclick="deleteFile()"><i class="fa-solid fa-trash"></i> Delete File</button>
+      </div>
+    </div>
+  </div>
 </div>
 
-<!-- Share modal -->
+<!-- Share Link Modal -->
 <div class="modal" id="shareModal">
-    <div class="modal-backdrop" onclick="closeModal('shareModal')"></div>
-    <div class="modal-content">
-        <div class="modal-header">
-            <h3>Create Share Link</h3>
-            <button onclick="closeModal('shareModal')"><i class="fa-solid fa-xmark"></i></button>
+  <div class="modal-backdrop" onclick="closeModal('shareModal')"></div>
+  <div class="modal-content">
+    <div class="modal-header"><h3>Create Share Link</h3><button onclick="closeModal('shareModal')"><i class="fa-solid fa-xmark"></i></button></div>
+    <div class="modal-body">
+      <div class="form-group"><label>Expiry</label>
+        <select id="shareExpiry"><option value="">Never</option><option value="1">1 Hour</option><option value="24">24 Hours</option><option value="168">7 Days</option><option value="720">30 Days</option></select>
+      </div>
+      <div class="form-group"><label class="checkbox-label"><input type="checkbox" id="shareDownload" checked> Allow Download</label></div>
+      <button class="btn-primary btn-full" onclick="submitShare()">Generate Link</button>
+      <div id="shareResult" style="display:none;margin-top:1rem">
+        <div class="share-link-box">
+          <input type="text" id="shareLinkInput" readonly>
+          <button class="btn-primary" onclick="copyShareLink()"><i class="fa-solid fa-copy"></i></button>
         </div>
-        <div class="modal-body">
-            <div class="form-group">
-                <label>Expiry</label>
-                <select id="shareExpiry">
-                    <option value="">Never</option>
-                    <option value="1">1 Hour</option>
-                    <option value="24">24 Hours</option>
-                    <option value="168">7 Days</option>
-                    <option value="720">30 Days</option>
-                </select>
-            </div>
-            <div class="form-group">
-                <label class="checkbox-label"><input type="checkbox" id="shareDownload" checked> Allow Download</label>
-            </div>
-            <button class="btn-primary btn-full" onclick="submitShare()">Generate Link</button>
-            <div id="shareResult" style="display:none">
-                <div class="share-link-box">
-                    <input type="text" id="shareLinkInput" readonly>
-                    <button class="btn-primary" onclick="copyShareLink()"><i class="fa-solid fa-copy"></i></button>
-                </div>
-                <div class="share-qr-link"><a id="shareQrLink" target="_blank"><i class="fa-solid fa-qrcode"></i> QR Code</a></div>
-            </div>
-        </div>
+        <div class="share-qr-link" style="text-align:center;margin-top:0.75rem"><a id="shareQrLink" target="_blank"><i class="fa-solid fa-qrcode"></i> QR Code</a></div>
+      </div>
     </div>
+  </div>
+</div>
+
+<!-- Share with User Modal -->
+<div class="modal" id="shareUserModal">
+  <div class="modal-backdrop" onclick="closeModal('shareUserModal')"></div>
+  <div class="modal-content">
+    <div class="modal-header"><h3><i class="fa-solid fa-user-plus"></i> Share with User</h3><button onclick="closeModal('shareUserModal')"><i class="fa-solid fa-xmark"></i></button></div>
+    <div class="modal-body">
+      <div class="form-group">
+        <label>Search Username</label>
+        <input type="text" id="userSearchInput" placeholder="Type username..." oninput="searchUsers(this.value)">
+        <div id="userSuggestions" class="user-suggestions"></div>
+      </div>
+      <div id="selectedUser" style="display:none" class="selected-user-chip">
+        <span id="selectedUserName"></span>
+        <button onclick="clearSelectedUser()"><i class="fa-solid fa-xmark"></i></button>
+      </div>
+      <button class="btn-primary btn-full" onclick="submitShareWithUser()" style="margin-top:1rem">Share File</button>
+      <div id="shareUserResult" style="display:none;margin-top:1rem">
+        <div class="share-link-box">
+          <input type="text" id="shareUserLinkInput" readonly>
+          <button class="btn-primary" onclick="copyLink(document.getElementById('shareUserLinkInput').value)"><i class="fa-solid fa-copy"></i></button>
+        </div>
+      </div>
+    </div>
+  </div>
 </div>
 {% endblock %}
 {% block extra_js %}
 <script>
 const fileId = {{ file.id }};
+let selectedUsername = null;
 
 {% if file.file_type == 'text' %}
-fetch(`/files/${fileId}/preview`)
-    .then(r => r.json())
-    .then(data => {
-        const pre = document.createElement('pre');
-        pre.textContent = data.content;
-        document.getElementById('textPreview').innerHTML = '';
-        document.getElementById('textPreview').appendChild(pre);
-    });
+fetch(`/files/${fileId}/preview`).then(r=>r.json()).then(data=>{
+  const pre = document.createElement('pre'); pre.textContent = data.content;
+  document.getElementById('textPreview').innerHTML=''; document.getElementById('textPreview').appendChild(pre);
+});
 {% endif %}
 
-function editName() {
-    const current = document.getElementById('fileName').textContent;
-    const input = document.createElement('input');
-    input.type = 'text'; input.value = current; input.className = 'inline-edit';
-    input.onblur = async () => {
-        const newName = input.value.trim();
-        if (newName && newName !== current) {
-            const r = await fetch(`/files/${fileId}/rename`, {method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({name:newName})});
-            const data = await r.json();
-            if (data.ok) { document.getElementById('fileName').textContent = data.name; showToast('Renamed','success'); }
-        } else { document.getElementById('fileName').textContent = current; }
-        input.replaceWith(document.getElementById('fileName'));
-    };
-    input.onkeydown = e => { if (e.key==='Enter') input.blur(); if (e.key==='Escape') { document.getElementById('fileName').textContent = current; } };
-    document.getElementById('fileName').replaceWith(input);
-    input.focus(); input.select();
+function editName(){
+  const cur=document.getElementById('fileName').textContent;
+  const inp=document.createElement('input'); inp.type='text'; inp.value=cur; inp.className='inline-edit';
+  inp.onblur=async()=>{
+    const n=inp.value.trim();
+    if(n&&n!==cur){const r=await fetch(`/files/${fileId}/rename`,{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({name:n})});const d=await r.json();if(d.ok){document.getElementById('fileName').textContent=d.name;showToast('Renamed','success');}}
+    else{document.getElementById('fileName').textContent=cur;}
+    inp.replaceWith(document.getElementById('fileName'));
+  };
+  inp.onkeydown=e=>{if(e.key==='Enter')inp.blur();if(e.key==='Escape'){document.getElementById('fileName').textContent=cur;inp.replaceWith(document.getElementById('fileName'));}};
+  document.getElementById('fileName').replaceWith(inp); inp.focus(); inp.select();
 }
-
-function editTags() { document.getElementById('tagsDisplay').style.display='none'; document.getElementById('tagsEdit').style.display='flex'; }
-function cancelTagsEdit() { document.getElementById('tagsDisplay').style.display=''; document.getElementById('tagsEdit').style.display='none'; }
-async function saveTags() {
-    const tags = document.getElementById('tagsInput').value;
-    await fetch(`/files/${fileId}/tags`, {method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({tags})});
-    showToast('Tags saved','success'); setTimeout(()=>location.reload(),500);
+function editTags(){document.getElementById('tagsDisplay').style.display='none';document.getElementById('tagsEdit').style.display='flex';}
+function cancelTagsEdit(){document.getElementById('tagsDisplay').style.display='';document.getElementById('tagsEdit').style.display='none';}
+async function saveTags(){
+  const t=document.getElementById('tagsInput').value;
+  await fetch(`/files/${fileId}/tags`,{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({tags:t})});
+  showToast('Tags saved','success'); setTimeout(()=>location.reload(),500);
 }
-
-async function toggleFav() {
-    const r = await fetch(`/files/${fileId}/favorite`, {method:'POST'});
-    const data = await r.json();
-    const icon = document.getElementById('favIcon');
-    icon.className = `fa-${data.favorited ? 'solid' : 'regular'} fa-star`;
+async function toggleFav(){
+  const r=await fetch(`/files/${fileId}/favorite`,{method:'POST'});const d=await r.json();
+  document.getElementById('favIcon').className=`fa-${d.favorited?'solid':'regular'} fa-star`;
 }
-
-function shareFile() { document.getElementById('shareModal').classList.add('open'); }
-async function submitShare() {
-    const expires = document.getElementById('shareExpiry').value;
-    const allowDl = document.getElementById('shareDownload').checked;
-    const r = await fetch(`/files/${fileId}/share`, {method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({expires_in:expires||null,allow_download:allowDl})});
-    const data = await r.json();
-    if (data.ok) {
-        document.getElementById('shareLinkInput').value = data.url;
-        document.getElementById('shareQrLink').href = `/share/${data.token}/qr`;
-        document.getElementById('shareResult').style.display='block';
-    }
+function openShareModal(){document.getElementById('shareResult').style.display='none';document.getElementById('shareModal').classList.add('open');}
+async function submitShare(){
+  const exp=document.getElementById('shareExpiry').value;
+  const dl=document.getElementById('shareDownload').checked;
+  const r=await fetch(`/files/${fileId}/share`,{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({expires_in:exp||null,allow_download:dl})});
+  const d=await r.json();
+  if(d.ok){document.getElementById('shareLinkInput').value=d.url;document.getElementById('shareQrLink').href=`/share/${d.token}/qr`;document.getElementById('shareResult').style.display='block';}
 }
-function copyShareLink() { navigator.clipboard.writeText(document.getElementById('shareLinkInput').value); showToast('Copied!','success'); }
-function copyLink(url) { navigator.clipboard.writeText(url); showToast('Copied!','success'); }
-async function createShare() { shareFile(); }
-async function deleteShare(id, btn) {
-    if (!confirm('Delete this share link?')) return;
-    const r = await fetch(`/shares/${id}/delete`, {method:'POST'});
-    if ((await r.json()).ok) { btn.closest('.share-item').remove(); showToast('Share deleted','success'); }
+function copyShareLink(){navigator.clipboard.writeText(document.getElementById('shareLinkInput').value);showToast('Copied!','success');}
+function copyLink(url){navigator.clipboard.writeText(url);showToast('Copied!','success');}
+async function deleteShare(id,btn){
+  if(!confirm('Delete this share link?'))return;
+  const r=await fetch(`/shares/${id}/delete`,{method:'POST'});
+  if((await r.json()).ok){btn.closest('.share-item').remove();showToast('Share deleted','success');}
 }
-async function deleteFile() {
-    if (!confirm('Permanently delete this file?')) return;
-    const r = await fetch(`/files/${fileId}/delete`, {method:'POST'});
-    if ((await r.json()).ok) { showToast('File deleted','success'); setTimeout(()=>window.location='{{ url_for("files.list_files") }}',800); }
+async function deleteFile(){
+  if(!confirm('Permanently delete this file?'))return;
+  const r=await fetch(`/files/${fileId}/delete`,{method:'POST'});
+  if((await r.json()).ok){showToast('File deleted','success');setTimeout(()=>window.location='/files',800);}
+}
+function openShareUserModal(){document.getElementById('shareUserResult').style.display='none';document.getElementById('userSearchInput').value='';document.getElementById('userSuggestions').innerHTML='';clearSelectedUser();document.getElementById('shareUserModal').classList.add('open');}
+let searchTimeout;
+function searchUsers(q){
+  clearTimeout(searchTimeout);
+  if(q.length<2){document.getElementById('userSuggestions').innerHTML='';return;}
+  searchTimeout=setTimeout(async()=>{
+    const r=await fetch(`/api/search-users?q=${encodeURIComponent(q)}`);
+    const users=await r.json();
+    const box=document.getElementById('userSuggestions');
+    box.innerHTML=users.map(u=>`<div class="user-suggestion-item" onclick="selectUser('${u.username}')"><i class="fa-solid fa-user"></i> ${u.username}</div>`).join('');
+  },300);
+}
+function selectUser(username){
+  selectedUsername=username;
+  document.getElementById('selectedUserName').textContent=username;
+  document.getElementById('selectedUser').style.display='flex';
+  document.getElementById('userSuggestions').innerHTML='';
+  document.getElementById('userSearchInput').value='';
+}
+function clearSelectedUser(){selectedUsername=null;document.getElementById('selectedUser').style.display='none';}
+async function submitShareWithUser(){
+  if(!selectedUsername){showToast('Please select a user','error');return;}
+  const r=await fetch(`/files/${fileId}/share-with-user`,{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({username:selectedUsername})});
+  const d=await r.json();
+  if(d.ok){document.getElementById('shareUserLinkInput').value=d.url;document.getElementById('shareUserResult').style.display='block';showToast(`Shared with ${selectedUsername}!`,'success');}
+  else{showToast(d.error,'error');}
 }
 </script>
 {% endblock %}
