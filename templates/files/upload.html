@@ -1,161 +1,161 @@
 {% extends "base.html" %}
-{% block title %}Upload Files — Serenia Media{% endblock %}
+{% block title %}Upload Files — {{ site_name }}{% endblock %}
 {% block content %}
-<div class="page-header">
-    <h1>Upload Files</h1>
-</div>
+<div class="page-header"><h1>Upload Files</h1></div>
 
 <div class="upload-page">
-    <div class="drop-zone" id="dropZone">
-        <div class="drop-zone-content" id="dropContent">
-            <div class="drop-icon"><i class="fa-solid fa-cloud-arrow-up"></i></div>
-            <h3>Drag & drop files here</h3>
-            <p>or click to browse files</p>
-            <p class="drop-hint">Images, Videos, Audio, PDFs, Documents, Archives, Text — up to 100MB per file</p>
-            <input type="file" id="fileInput" multiple style="display:none">
-            <button class="btn-primary" onclick="document.getElementById('fileInput').click()">
-                <i class="fa-solid fa-folder-open"></i> Browse Files
-            </button>
-        </div>
+  <!-- Folder selector -->
+  <div class="card" style="margin-bottom:1.25rem">
+    <div class="card-body" style="display:flex;align-items:center;gap:1rem;flex-wrap:wrap">
+      <label style="font-weight:600;font-size:0.875rem"><i class="fa-solid fa-folder"></i> Upload to:</label>
+      <select id="folderSelect" style="width:auto;min-width:200px">
+        <option value="">Root (no folder)</option>
+        {% for f in all_folders %}
+        <option value="{{ f.id }}" {{ 'selected' if request.args.get('folder_id')|int == f.id }}>{{ f.name }}</option>
+        {% endfor %}
+      </select>
     </div>
+  </div>
 
-    <div class="upload-queue" id="uploadQueue" style="display:none">
-        <div class="queue-header">
-            <h3>Upload Queue</h3>
-            <button class="btn-outline btn-sm" id="clearQueue">Clear</button>
-        </div>
-        <div id="queueItems"></div>
-        <button class="btn-primary btn-upload-all" id="uploadAllBtn">
-            <i class="fa-solid fa-upload"></i> Upload All
-        </button>
+  <div class="drop-zone" id="dropZone">
+    <div class="drop-zone-content">
+      <div class="drop-icon"><i class="fa-solid fa-cloud-arrow-up"></i></div>
+      <h3>Drag & drop files here</h3>
+      <p>or click to browse — any file type, up to 100 MB each</p>
+      <input type="file" id="fileInput" multiple style="display:none">
+      <button class="btn-primary" onclick="document.getElementById('fileInput').click()">
+        <i class="fa-solid fa-folder-open"></i> Browse Files
+      </button>
     </div>
+  </div>
 
-    <div class="upload-results" id="uploadResults" style="display:none">
-        <h3>Upload Results</h3>
-        <div id="resultItems"></div>
-        <div class="result-actions">
-            <a href="{{ url_for('files.list_files') }}" class="btn-primary">View My Files</a>
-            <button class="btn-outline" onclick="resetUpload()">Upload More</button>
-        </div>
+  <div class="upload-queue" id="uploadQueue" style="display:none">
+    <div class="queue-header">
+      <h3>Upload Queue (<span id="queueCount">0</span> files)</h3>
+      <div style="display:flex;gap:0.5rem">
+        <button class="btn-outline btn-sm" id="clearQueue" onclick="clearQueue()">Clear</button>
+        <button class="btn-primary btn-sm" id="uploadAllBtn" onclick="uploadAll()"><i class="fa-solid fa-upload"></i> Upload All</button>
+      </div>
     </div>
+    <div class="queue-progress-bar"><div id="overallProgress" style="width:0%"></div></div>
+    <div id="queueItems"></div>
+  </div>
+
+  <div class="upload-results" id="uploadResults" style="display:none">
+    <h3>Upload Results</h3>
+    <div id="resultItems"></div>
+    <div class="result-actions">
+      <a href="{{ url_for('files.list_files') }}" class="btn-primary">View My Files</a>
+      <button class="btn-outline" onclick="resetUpload()">Upload More</button>
+    </div>
+  </div>
 </div>
 {% endblock %}
 {% block extra_js %}
 <script>
 const dropZone = document.getElementById('dropZone');
 const fileInput = document.getElementById('fileInput');
-const uploadQueue = document.getElementById('uploadQueue');
-const queueItems = document.getElementById('queueItems');
-const uploadResults = document.getElementById('uploadResults');
-const resultItems = document.getElementById('resultItems');
 let selectedFiles = [];
 
-dropZone.addEventListener('dragover', e => { e.preventDefault(); dropZone.classList.add('drag-over'); });
-dropZone.addEventListener('dragleave', () => dropZone.classList.remove('drag-over'));
-dropZone.addEventListener('drop', e => {
-    e.preventDefault();
-    dropZone.classList.remove('drag-over');
-    addFiles(Array.from(e.dataTransfer.files));
-});
-fileInput.addEventListener('change', e => addFiles(Array.from(e.target.files)));
+dropZone.addEventListener('dragover', e=>{ e.preventDefault(); dropZone.classList.add('drag-over'); });
+dropZone.addEventListener('dragleave', ()=>dropZone.classList.remove('drag-over'));
+dropZone.addEventListener('drop', e=>{ e.preventDefault(); dropZone.classList.remove('drag-over'); addFiles(Array.from(e.dataTransfer.files)); });
+dropZone.addEventListener('click', ()=>fileInput.click());
+fileInput.addEventListener('change', e=>addFiles(Array.from(e.target.files)));
 
 function addFiles(files) {
-    selectedFiles = [...selectedFiles, ...files];
-    renderQueue();
+  selectedFiles = [...selectedFiles, ...files];
+  renderQueue();
 }
 
 function renderQueue() {
-    if (!selectedFiles.length) { uploadQueue.style.display = 'none'; return; }
-    uploadQueue.style.display = 'block';
-    queueItems.innerHTML = selectedFiles.map((f, i) => `
-        <div class="queue-item" id="qi-${i}">
-            <div class="qi-icon"><i class="fa-solid ${getIcon(f.name)}"></i></div>
-            <div class="qi-info">
-                <div class="qi-name">${escHtml(f.name)}</div>
-                <div class="qi-size">${humanSize(f.size)}</div>
-            </div>
-            <div class="qi-progress" id="qp-${i}" style="display:none">
-                <div class="progress-bar"><div class="progress-fill" id="pf-${i}" style="width:0%"></div></div>
-                <span id="ps-${i}">0%</span>
-            </div>
-            <button class="btn-icon-sm" onclick="removeFile(${i})"><i class="fa-solid fa-xmark"></i></button>
-        </div>`).join('');
+  if (!selectedFiles.length) { document.getElementById('uploadQueue').style.display='none'; return; }
+  document.getElementById('uploadQueue').style.display='block';
+  document.getElementById('queueCount').textContent = selectedFiles.length;
+  document.getElementById('queueItems').innerHTML = selectedFiles.map((f,i) => `
+    <div class="queue-item" id="qi-${i}">
+      <div class="qi-icon"><i class="fa-solid ${getIcon(f.name)}"></i></div>
+      <div class="qi-info">
+        <div class="qi-name">${escHtml(f.name)}</div>
+        <div class="qi-size">${humanSize(f.size)}</div>
+      </div>
+      <div class="qi-progress" id="qp-${i}" style="display:none">
+        <div class="progress-bar"><div class="progress-fill" id="pf-${i}" style="width:0%"></div></div>
+        <span id="ps-${i}">0%</span>
+      </div>
+      <span class="qi-status" id="qs-${i}"></span>
+      <button class="btn-icon-sm" onclick="removeFile(${i})"><i class="fa-solid fa-xmark"></i></button>
+    </div>`).join('');
 }
 
-function removeFile(i) { selectedFiles.splice(i, 1); renderQueue(); }
+function removeFile(i) { selectedFiles.splice(i,1); renderQueue(); }
+function clearQueue() { selectedFiles=[]; renderQueue(); }
 
-document.getElementById('clearQueue').onclick = () => { selectedFiles = []; renderQueue(); };
+async function uploadAll() {
+  if (!selectedFiles.length) return;
+  const btn = document.getElementById('uploadAllBtn');
+  btn.disabled = true; btn.innerHTML = '<i class="fa-solid fa-spinner fa-spin"></i> Uploading…';
 
-document.getElementById('uploadAllBtn').onclick = async () => {
-    if (!selectedFiles.length) return;
-    document.getElementById('uploadAllBtn').disabled = true;
-    const formData = new FormData();
-    selectedFiles.forEach(f => formData.append('files', f));
+  const folderId = document.getElementById('folderSelect').value;
+  const formData = new FormData();
+  selectedFiles.forEach(f => formData.append('files', f));
+  if (folderId) formData.append('folder_id', folderId);
 
-    // Show progress on all items
-    selectedFiles.forEach((_, i) => {
-        document.getElementById(`qp-${i}`).style.display = 'flex';
-    });
+  selectedFiles.forEach((_,i) => {
+    document.getElementById(`qp-${i}`).style.display='flex';
+  });
 
-    try {
-        const xhr = new XMLHttpRequest();
-        xhr.upload.onprogress = e => {
-            if (e.lengthComputable) {
-                const pct = Math.round((e.loaded / e.total) * 100);
-                selectedFiles.forEach((_, i) => {
-                    const pf = document.getElementById(`pf-${i}`);
-                    const ps = document.getElementById(`ps-${i}`);
-                    if (pf) pf.style.width = pct + '%';
-                    if (ps) ps.textContent = pct + '%';
-                });
-            }
-        };
-        xhr.onload = () => {
-            const data = JSON.parse(xhr.responseText);
-            showResults(data.results);
-        };
-        xhr.open('POST', '{{ url_for("files.upload") }}');
-        xhr.send(formData);
-    } catch(err) {
-        showToast('Upload failed: ' + err.message, 'error');
-    }
-};
+  try {
+    const xhr = new XMLHttpRequest();
+    xhr.upload.onprogress = e => {
+      if (e.lengthComputable) {
+        const pct = Math.round((e.loaded/e.total)*100);
+        document.getElementById('overallProgress').style.width = pct+'%';
+        selectedFiles.forEach((_,i) => {
+          const pf=document.getElementById(`pf-${i}`);
+          const ps=document.getElementById(`ps-${i}`);
+          if(pf) pf.style.width=pct+'%';
+          if(ps) ps.textContent=pct+'%';
+        });
+      }
+    };
+    xhr.onload = () => {
+      const data = JSON.parse(xhr.responseText);
+      showResults(data.results);
+    };
+    xhr.onerror = () => showToast('Upload failed','error');
+    xhr.open('POST', '/upload');
+    xhr.send(formData);
+  } catch(err) {
+    showToast('Upload error: '+err.message,'error');
+    btn.disabled=false;
+  }
+}
 
 function showResults(results) {
-    uploadQueue.style.display = 'none';
-    uploadResults.style.display = 'block';
-    resultItems.innerHTML = results.map(r => `
-        <div class="result-item ${r.success ? 'success' : 'error'}">
-            <i class="fa-solid ${r.success ? 'fa-circle-check' : 'fa-circle-xmark'}"></i>
-            <span>${escHtml(r.name)}</span>
-            <span class="result-msg">${r.error || 'Uploaded'}</span>
-        </div>`).join('');
+  document.getElementById('uploadQueue').style.display='none';
+  document.getElementById('uploadResults').style.display='block';
+  const ok  = results.filter(r=>r.success).length;
+  const fail= results.filter(r=>r.error).length;
+  document.getElementById('resultItems').innerHTML = results.map(r=>`
+    <div class="result-item ${r.success?'success':'error'}">
+      <i class="fa-solid ${r.success?'fa-circle-check':'fa-circle-xmark'}"></i>
+      <span>${escHtml(r.name)}</span>
+      <span class="result-msg">${r.error||'Uploaded successfully'}</span>
+    </div>`).join('');
+  showToast(`${ok} uploaded${fail?' · '+fail+' failed':''}`, ok?'success':'error');
 }
 
 function resetUpload() {
-    selectedFiles = [];
-    uploadResults.style.display = 'none';
-    uploadQueue.style.display = 'none';
-    queueItems.innerHTML = '';
+  selectedFiles=[]; document.getElementById('uploadResults').style.display='none';
+  document.getElementById('uploadQueue').style.display='none';
+  document.getElementById('overallProgress').style.width='0%';
+  const btn=document.getElementById('uploadAllBtn');
+  btn.disabled=false; btn.innerHTML='<i class="fa-solid fa-upload"></i> Upload All';
 }
 
-function getIcon(name) {
-    const ext = name.split('.').pop().toLowerCase();
-    const map = {png:'fa-image',jpg:'fa-image',jpeg:'fa-image',gif:'fa-image',webp:'fa-image',
-        mp4:'fa-video',mov:'fa-video',avi:'fa-video',mkv:'fa-video',
-        mp3:'fa-music',wav:'fa-music',aac:'fa-music',
-        pdf:'fa-file-pdf',doc:'fa-file-word',docx:'fa-file-word',
-        xls:'fa-file-excel',xlsx:'fa-file-excel',ppt:'fa-file-powerpoint',pptx:'fa-file-powerpoint',
-        zip:'fa-file-zipper',rar:'fa-file-zipper',tar:'fa-file-zipper',
-        txt:'fa-file-lines',md:'fa-file-lines',js:'fa-file-code',py:'fa-file-code'};
-    return map[ext] || 'fa-file';
-}
-function humanSize(b){
-    if(b<1024)return b+' B';
-    if(b<1048576)return (b/1024).toFixed(1)+' KB';
-    if(b<1073741824)return (b/1048576).toFixed(1)+' MB';
-    return (b/1073741824).toFixed(1)+' GB';
-}
+function getIcon(name){const e=name.split('.').pop().toLowerCase();const m={png:'fa-image',jpg:'fa-image',jpeg:'fa-image',gif:'fa-image',webp:'fa-image',mp4:'fa-video',mov:'fa-video',avi:'fa-video',mkv:'fa-video',mp3:'fa-music',wav:'fa-music',aac:'fa-music',pdf:'fa-file-pdf',doc:'fa-file-word',docx:'fa-file-word',xls:'fa-file-excel',xlsx:'fa-file-excel',zip:'fa-file-zipper',rar:'fa-file-zipper',txt:'fa-file-lines',md:'fa-file-lines',js:'fa-file-code',py:'fa-file-code'};return m[e]||'fa-file';}
+function humanSize(b){if(b<1024)return b+' B';if(b<1048576)return (b/1024).toFixed(1)+' KB';if(b<1073741824)return (b/1048576).toFixed(1)+' MB';return (b/1073741824).toFixed(1)+' GB';}
 function escHtml(s){return s.replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;');}
 </script>
 {% endblock %}

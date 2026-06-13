@@ -1,205 +1,386 @@
 {% extends "base.html" %}
-{% block title %}My Files — Serenia Media{% endblock %}
+{% block title %}My Files — {{ site_name }}{% endblock %}
 {% block content %}
 <div class="page-header">
-    <h1>My Files</h1>
-    <a href="{{ url_for('files.upload') }}" class="btn-primary"><i class="fa-solid fa-plus"></i> Upload</a>
+  <div>
+    <h1>
+      {% if current_folder %}
+        <a href="{{ url_for('files.list_files') }}" class="breadcrumb-link">My Files</a>
+        {% for crumb in breadcrumb %}
+          <span class="breadcrumb-sep">/</span>
+          {% if not loop.last %}
+            <a href="{{ url_for('files.list_files', folder_id=crumb.id) }}" class="breadcrumb-link">{{ crumb.name }}</a>
+          {% else %}
+            <span>{{ crumb.name }}</span>
+          {% endif %}
+        {% endfor %}
+      {% else %}
+        My Files
+      {% endif %}
+    </h1>
+  </div>
+  <div style="display:flex;gap:0.625rem;flex-wrap:wrap">
+    <button class="btn-outline" onclick="openCreateFolder()"><i class="fa-solid fa-folder-plus"></i> New Folder</button>
+    <a href="{{ url_for('files.upload') }}{% if folder_id %}?folder_id={{ folder_id }}{% endif %}" class="btn-primary"><i class="fa-solid fa-plus"></i> Upload</a>
+  </div>
 </div>
 
+<!-- Toolbar -->
 <div class="toolbar">
-    <form class="toolbar-search" method="get">
-        <i class="fa-solid fa-magnifying-glass"></i>
-        <input type="text" name="q" placeholder="Search files..." value="{{ q }}">
-        <input type="hidden" name="type" value="{{ file_type }}">
-        <input type="hidden" name="sort" value="{{ sort }}">
-    </form>
-    <div class="toolbar-filters">
-        <select name="type" id="typeFilter" onchange="applyFilter()">
-            <option value="" {{ 'selected' if not file_type }}>All Types</option>
-            <option value="image" {{ 'selected' if file_type=='image' }}>Images</option>
-            <option value="video" {{ 'selected' if file_type=='video' }}>Videos</option>
-            <option value="audio" {{ 'selected' if file_type=='audio' }}>Audio</option>
-            <option value="document" {{ 'selected' if file_type=='document' }}>Documents</option>
-            <option value="archive" {{ 'selected' if file_type=='archive' }}>Archives</option>
-            <option value="text" {{ 'selected' if file_type=='text' }}>Text</option>
-        </select>
-        <select name="sort" id="sortFilter" onchange="applyFilter()">
-            <option value="date" {{ 'selected' if sort=='date' }}>Newest First</option>
-            <option value="name" {{ 'selected' if sort=='name' }}>Name A-Z</option>
-            <option value="size" {{ 'selected' if sort=='size' }}>Largest First</option>
-            <option value="type" {{ 'selected' if sort=='type' }}>By Type</option>
-        </select>
+  <form class="toolbar-search" method="get">
+    {% if folder_id %}<input type="hidden" name="folder_id" value="{{ folder_id }}">{% endif %}
+    <i class="fa-solid fa-magnifying-glass"></i>
+    <input type="text" name="q" placeholder="Search files..." value="{{ q }}">
+    <input type="hidden" name="type" value="{{ file_type }}">
+    <input type="hidden" name="sort" value="{{ sort }}">
+  </form>
+  <div class="toolbar-filters">
+    <select id="typeFilter" onchange="applyFilter()">
+      <option value="" {{ 'selected' if not file_type }}>All Types</option>
+      <option value="image" {{ 'selected' if file_type=='image' }}>Images</option>
+      <option value="video" {{ 'selected' if file_type=='video' }}>Videos</option>
+      <option value="audio" {{ 'selected' if file_type=='audio' }}>Audio</option>
+      <option value="document" {{ 'selected' if file_type=='document' }}>Documents</option>
+      <option value="archive" {{ 'selected' if file_type=='archive' }}>Archives</option>
+      <option value="text" {{ 'selected' if file_type=='text' }}>Text</option>
+    </select>
+    <select id="sortFilter" onchange="applyFilter()">
+      <option value="date" {{ 'selected' if sort=='date' }}>Newest</option>
+      <option value="name" {{ 'selected' if sort=='name' }}>Name</option>
+      <option value="size" {{ 'selected' if sort=='size' }}>Size</option>
+      <option value="type" {{ 'selected' if sort=='type' }}>Type</option>
+    </select>
+  </div>
+  <div class="toolbar-actions">
+    <button class="btn-icon" id="viewGrid" title="Grid view" onclick="setView('grid')"><i class="fa-solid fa-grid-2"></i></button>
+    <button class="btn-icon" id="viewList" title="List view" onclick="setView('list')"><i class="fa-solid fa-list"></i></button>
+    <div id="bulkActions" style="display:none;gap:0.5rem" class="bulk-actions">
+      <button class="btn-outline btn-sm" onclick="openBulkMove()"><i class="fa-solid fa-folder-arrow-up"></i> Move</button>
+      <button class="btn-primary btn-sm" onclick="bulkDownload()"><i class="fa-solid fa-download"></i> Download ZIP</button>
+      <button class="btn-outline btn-sm btn-danger" onclick="bulkDelete()"><i class="fa-solid fa-trash"></i> Delete</button>
     </div>
-    <div class="toolbar-actions">
-        <button class="btn-icon" id="viewGrid" title="Grid view"><i class="fa-solid fa-grid-2"></i></button>
-        <button class="btn-icon" id="viewList" title="List view"><i class="fa-solid fa-list"></i></button>
-        <button class="btn-outline btn-sm btn-danger" id="bulkDeleteBtn" style="display:none" onclick="bulkDelete()">
-            <i class="fa-solid fa-trash"></i> Delete Selected
-        </button>
-    </div>
+  </div>
 </div>
 
-{% if files.items %}
-<div class="files-grid" id="filesGrid">
-    {% for f in files.items %}
-    <div class="file-card" data-id="{{ f.id }}">
-        <div class="file-card-check">
-            <input type="checkbox" class="file-select" value="{{ f.id }}" onchange="updateBulk()">
-        </div>
-        <a href="{{ url_for('files.file_detail', file_id=f.id) }}" class="file-card-preview file-{{ f.file_type }}">
-            {% if f.file_type == 'image' %}
-            <img src="{{ url_for('files.preview', file_id=f.id) }}" alt="{{ f.original_filename }}" loading="lazy" onerror="this.style.display='none';this.nextElementSibling.style.display='flex'">
-            <div class="file-icon-fallback" style="display:none"><i class="fa-solid {{ f.icon_class() }}"></i></div>
-            {% else %}
-            <div class="file-icon-large"><i class="fa-solid {{ f.icon_class() }}"></i></div>
-            {% endif %}
-        </a>
-        <div class="file-card-info">
-            <div class="file-card-name" title="{{ f.original_filename }}">{{ f.original_filename }}</div>
-            <div class="file-card-meta">{{ f.size_human() }} · {{ f.created_at|timeago }}</div>
-        </div>
-        <div class="file-card-actions">
-            <a href="{{ url_for('files.download', file_id=f.id) }}" class="btn-icon-sm" title="Download"><i class="fa-solid fa-download"></i></a>
-            <button class="btn-icon-sm" onclick="shareFile({{ f.id }})" title="Share"><i class="fa-solid fa-share-nodes"></i></button>
-            <button class="btn-icon-sm fav-btn {{ 'active' if f.is_favorite }}" onclick="toggleFav({{ f.id }}, this)" title="Favorite"><i class="fa-{{ 'solid' if f.is_favorite else 'regular' }} fa-star"></i></button>
-            <button class="btn-icon-sm btn-danger-hover" onclick="deleteFile({{ f.id }}, this)" title="Delete"><i class="fa-solid fa-trash"></i></button>
-        </div>
+<!-- Subfolders -->
+{% if subfolders %}
+<div class="folders-section">
+  <div class="section-label"><i class="fa-solid fa-folder"></i> Folders</div>
+  <div class="folders-grid">
+    {% for folder in subfolders %}
+    <div class="folder-card" id="fc-{{ folder.id }}">
+      <a href="{{ url_for('files.list_files', folder_id=folder.id) }}" class="folder-card-link">
+        <div class="folder-icon" style="color:{{ folder.color }}"><i class="fa-solid fa-folder"></i></div>
+        <div class="folder-name">{{ folder.name }}</div>
+        <div class="folder-meta">{{ folder.file_count() }} files · {{ folder.size_human() }}</div>
+      </a>
+      <div class="folder-actions">
+        <button class="btn-icon-sm" onclick="downloadFolder({{ folder.id }}, '{{ folder.name }}')" title="Download as ZIP"><i class="fa-solid fa-download"></i></button>
+        <button class="btn-icon-sm" onclick="renameFolder({{ folder.id }}, '{{ folder.name }}')" title="Rename"><i class="fa-solid fa-pen"></i></button>
+        <button class="btn-icon-sm btn-danger-hover" onclick="deleteFolder({{ folder.id }}, this)" title="Delete"><i class="fa-solid fa-trash"></i></button>
+      </div>
     </div>
     {% endfor %}
+  </div>
+</div>
+{% endif %}
+
+<!-- Files -->
+{% if files.items %}
+<div class="section-label" style="margin-bottom:0.75rem"><i class="fa-solid fa-file"></i> Files</div>
+
+<!-- Select all bar -->
+<div class="select-bar">
+  <label class="checkbox-label"><input type="checkbox" id="selectAll" onchange="toggleSelectAll(this)"> Select All</label>
+  <span id="selectedCount" class="text-muted" style="font-size:0.8125rem"></span>
 </div>
 
-<!-- Pagination -->
+<div class="files-grid" id="filesGrid">
+  {% for f in files.items %}
+  <div class="file-card" data-id="{{ f.id }}">
+    <div class="file-card-check">
+      <input type="checkbox" class="file-select" value="{{ f.id }}" onchange="updateBulk()">
+    </div>
+    <a href="{{ url_for('files.file_detail', file_id=f.id) }}" class="file-card-preview file-{{ f.file_type }}">
+      {% if f.file_type == 'image' %}
+      <img src="{{ url_for('files.preview', file_id=f.id) }}" alt="{{ f.original_filename }}" loading="lazy"
+           onerror="this.style.display='none';this.nextElementSibling.style.display='flex'">
+      <div class="file-icon-fallback" style="display:none"><i class="fa-solid {{ f.icon_class() }}"></i></div>
+      {% else %}
+      <div class="file-icon-large file-{{ f.file_type }}"><i class="fa-solid {{ f.icon_class() }}"></i></div>
+      {% endif %}
+    </a>
+    <div class="file-card-info">
+      <div class="file-card-name" title="{{ f.original_filename }}">{{ f.original_filename }}</div>
+      <div class="file-card-meta">{{ f.size_human() }} · {{ f.created_at|timeago }}</div>
+      {% if f.folder %}<div class="file-card-folder"><i class="fa-solid fa-folder" style="color:{{ f.folder.color }}"></i> {{ f.folder.name }}</div>{% endif %}
+    </div>
+    <div class="file-card-actions">
+      <a href="{{ url_for('files.download', file_id=f.id) }}" class="btn-icon-sm" title="Download"><i class="fa-solid fa-download"></i></a>
+      <button class="btn-icon-sm" onclick="shareFile({{ f.id }})" title="Share"><i class="fa-solid fa-share-nodes"></i></button>
+      <button class="btn-icon-sm fav-btn" onclick="toggleFav({{ f.id }}, this)" title="Favorite"><i class="fa-regular fa-star"></i></button>
+      <button class="btn-icon-sm" onclick="openMoveFile({{ f.id }})" title="Move to folder"><i class="fa-solid fa-folder-arrow-up"></i></button>
+      <button class="btn-icon-sm btn-danger-hover" onclick="deleteFile({{ f.id }}, this)" title="Delete"><i class="fa-solid fa-trash"></i></button>
+    </div>
+  </div>
+  {% endfor %}
+</div>
+
 {% if files.pages > 1 %}
 <div class="pagination">
-    {% if files.has_prev %}
-    <a href="{{ url_for('files.list_files', page=files.prev_num, type=file_type, sort=sort, q=q) }}" class="btn-outline btn-sm">← Prev</a>
-    {% endif %}
-    <span class="page-info">Page {{ files.page }} of {{ files.pages }}</span>
-    {% if files.has_next %}
-    <a href="{{ url_for('files.list_files', page=files.next_num, type=file_type, sort=sort, q=q) }}" class="btn-outline btn-sm">Next →</a>
-    {% endif %}
+  {% if files.has_prev %}<a href="?page={{ files.prev_num }}&type={{ file_type }}&sort={{ sort }}&q={{ q }}{% if folder_id %}&folder_id={{ folder_id }}{% endif %}" class="btn-outline btn-sm">← Prev</a>{% endif %}
+  <span class="page-info">Page {{ files.page }} of {{ files.pages }}</span>
+  {% if files.has_next %}<a href="?page={{ files.next_num }}&type={{ file_type }}&sort={{ sort }}&q={{ q }}{% if folder_id %}&folder_id={{ folder_id }}{% endif %}" class="btn-outline btn-sm">Next →</a>{% endif %}
 </div>
 {% endif %}
 
-{% else %}
+{% elif not subfolders %}
 <div class="empty-state">
-    <i class="fa-solid fa-folder-open"></i>
-    <h3>No files found</h3>
-    <p>{% if q %}No files match your search.{% else %}Upload your first file to get started.{% endif %}</p>
-    <a href="{{ url_for('files.upload') }}" class="btn-primary">Upload Files</a>
+  <i class="fa-solid fa-folder-open"></i>
+  <h3>{{ 'No files found' if q else 'This folder is empty' }}</h3>
+  <p>{{ 'Try a different search.' if q else 'Upload files to get started.' }}</p>
+  <a href="{{ url_for('files.upload') }}{% if folder_id %}?folder_id={{ folder_id }}{% endif %}" class="btn-primary">Upload Files</a>
 </div>
 {% endif %}
+
+<!-- Create Folder Modal -->
+<div class="modal" id="createFolderModal">
+  <div class="modal-backdrop" onclick="closeModal('createFolderModal')"></div>
+  <div class="modal-content">
+    <div class="modal-header"><h3><i class="fa-solid fa-folder-plus"></i> New Folder</h3><button onclick="closeModal('createFolderModal')"><i class="fa-solid fa-xmark"></i></button></div>
+    <div class="modal-body">
+      <div class="form-group"><label>Folder Name</label><input type="text" id="folderNameInput" placeholder="My Folder" autofocus></div>
+      <div class="form-group">
+        <label>Colour</label>
+        <div class="color-swatches">
+          <button type="button" class="swatch active" style="background:#87CEEB" data-color="#87CEEB" onclick="selectSwatch(this)"></button>
+          <button type="button" class="swatch" style="background:#a78bfa" data-color="#a78bfa" onclick="selectSwatch(this)"></button>
+          <button type="button" class="swatch" style="background:#6ee7b7" data-color="#6ee7b7" onclick="selectSwatch(this)"></button>
+          <button type="button" class="swatch" style="background:#fca5a5" data-color="#fca5a5" onclick="selectSwatch(this)"></button>
+          <button type="button" class="swatch" style="background:#fcd34d" data-color="#fcd34d" onclick="selectSwatch(this)"></button>
+          <button type="button" class="swatch" style="background:#6b7280" data-color="#6b7280" onclick="selectSwatch(this)"></button>
+        </div>
+      </div>
+      <button class="btn-primary btn-full" onclick="submitCreateFolder()">Create Folder</button>
+    </div>
+  </div>
+</div>
+
+<!-- Move File Modal -->
+<div class="modal" id="moveFileModal">
+  <div class="modal-backdrop" onclick="closeModal('moveFileModal')"></div>
+  <div class="modal-content">
+    <div class="modal-header"><h3><i class="fa-solid fa-folder-arrow-up"></i> Move to Folder</h3><button onclick="closeModal('moveFileModal')"><i class="fa-solid fa-xmark"></i></button></div>
+    <div class="modal-body">
+      <div class="folder-picker">
+        <div class="folder-picker-item {{ 'active' if not folder_id }}" onclick="selectDestFolder(null, this)">
+          <i class="fa-solid fa-house"></i> Root (no folder)
+        </div>
+        {% for f in all_folders %}
+        <div class="folder-picker-item" onclick="selectDestFolder({{ f.id }}, this)">
+          <i class="fa-solid fa-folder" style="color:{{ f.color }}"></i> {{ f.name }}
+        </div>
+        {% endfor %}
+      </div>
+      <button class="btn-primary btn-full" style="margin-top:1rem" onclick="submitMove()">Move Here</button>
+    </div>
+  </div>
+</div>
+
+<!-- Bulk Move Modal -->
+<div class="modal" id="bulkMoveModal">
+  <div class="modal-backdrop" onclick="closeModal('bulkMoveModal')"></div>
+  <div class="modal-content">
+    <div class="modal-header"><h3><i class="fa-solid fa-folder-arrow-up"></i> Move Selected Files</h3><button onclick="closeModal('bulkMoveModal')"><i class="fa-solid fa-xmark"></i></button></div>
+    <div class="modal-body">
+      <div class="folder-picker" id="bulkFolderPicker">
+        <div class="folder-picker-item" onclick="selectBulkDestFolder(null, this)">
+          <i class="fa-solid fa-house"></i> Root (no folder)
+        </div>
+        {% for f in all_folders %}
+        <div class="folder-picker-item" onclick="selectBulkDestFolder({{ f.id }}, this)">
+          <i class="fa-solid fa-folder" style="color:{{ f.color }}"></i> {{ f.name }}
+        </div>
+        {% endfor %}
+      </div>
+      <button class="btn-primary btn-full" style="margin-top:1rem" onclick="submitBulkMove()">Move Files</button>
+    </div>
+  </div>
+</div>
 
 <!-- Share Modal -->
 <div class="modal" id="shareModal">
-    <div class="modal-backdrop" onclick="closeModal('shareModal')"></div>
-    <div class="modal-content">
-        <div class="modal-header">
-            <h3><i class="fa-solid fa-share-nodes"></i> Share File</h3>
-            <button onclick="closeModal('shareModal')"><i class="fa-solid fa-xmark"></i></button>
+  <div class="modal-backdrop" onclick="closeModal('shareModal')"></div>
+  <div class="modal-content">
+    <div class="modal-header"><h3><i class="fa-solid fa-share-nodes"></i> Share File</h3><button onclick="closeModal('shareModal')"><i class="fa-solid fa-xmark"></i></button></div>
+    <div class="modal-body">
+      <div class="form-group"><label>Expiry</label>
+        <select id="shareExpiry"><option value="">Never</option><option value="1">1 Hour</option><option value="24">24 Hours</option><option value="168">7 Days</option><option value="720">30 Days</option></select>
+      </div>
+      <div class="form-group"><label class="checkbox-label"><input type="checkbox" id="shareDownload" checked> Allow Download</label></div>
+      <button class="btn-primary btn-full" id="createShareBtn" onclick="submitShare()">Generate Link</button>
+      <div id="shareResult" style="display:none;margin-top:1rem">
+        <div class="share-link-box">
+          <input type="text" id="shareLinkInput" readonly>
+          <button class="btn-primary" onclick="copyShareLink()"><i class="fa-solid fa-copy"></i></button>
         </div>
-        <div class="modal-body">
-            <div class="form-group">
-                <label>Expiry</label>
-                <select id="shareExpiry">
-                    <option value="">Never</option>
-                    <option value="1">1 Hour</option>
-                    <option value="24">24 Hours</option>
-                    <option value="168">7 Days</option>
-                    <option value="720">30 Days</option>
-                </select>
-            </div>
-            <div class="form-group">
-                <label class="checkbox-label"><input type="checkbox" id="shareDownload" checked> Allow Download</label>
-            </div>
-            <button class="btn-primary btn-full" id="createShareBtn">Generate Link</button>
-            <div id="shareResult" style="display:none">
-                <div class="share-link-box">
-                    <input type="text" id="shareLinkInput" readonly>
-                    <button class="btn-primary" onclick="copyShareLink()"><i class="fa-solid fa-copy"></i></button>
-                </div>
-                <div class="share-qr-link"><a id="shareQrLink" target="_blank"><i class="fa-solid fa-qrcode"></i> QR Code</a></div>
-            </div>
-        </div>
+        <div style="text-align:center;margin-top:0.75rem"><a id="shareQrLink" target="_blank"><i class="fa-solid fa-qrcode"></i> QR Code</a></div>
+      </div>
     </div>
+  </div>
 </div>
 {% endblock %}
+
 {% block extra_js %}
 <script>
 let currentShareFileId = null;
+let currentMoveFileId  = null;
+let destFolderId       = null;
+let bulkDestFolderId   = null;
+let selectedColor      = '#87CEEB';
+const currentFolderId  = {{ folder_id or 'null' }};
 
 function applyFilter() {
-    const type = document.getElementById('typeFilter').value;
-    const sort = document.getElementById('sortFilter').value;
-    const q = document.querySelector('.toolbar-search input').value;
-    window.location = `{{ url_for('files.list_files') }}?type=${type}&sort=${sort}&q=${encodeURIComponent(q)}`;
+  const type = document.getElementById('typeFilter').value;
+  const sort = document.getElementById('sortFilter').value;
+  const q    = document.querySelector('.toolbar-search input[name=q]').value;
+  let url = `/files?type=${type}&sort=${sort}&q=${encodeURIComponent(q)}`;
+  if (currentFolderId) url += `&folder_id=${currentFolderId}`;
+  window.location = url;
 }
 
+// ── View toggle ────────────────────────────────────────────────────────────
+function setView(v) {
+  const grid = document.getElementById('filesGrid');
+  if (!grid) return;
+  grid.className = v === 'list' ? 'files-list-view' : 'files-grid';
+  localStorage.setItem('fileView', v);
+}
+window.addEventListener('DOMContentLoaded', () => {
+  const saved = localStorage.getItem('fileView');
+  if (saved) setView(saved);
+});
+
+// ── Bulk selection ─────────────────────────────────────────────────────────
+function getSelectedIds() {
+  return Array.from(document.querySelectorAll('.file-select:checked')).map(c => parseInt(c.value));
+}
 function updateBulk() {
-    const checked = document.querySelectorAll('.file-select:checked');
-    document.getElementById('bulkDeleteBtn').style.display = checked.length ? 'inline-flex' : 'none';
+  const ids = getSelectedIds();
+  document.getElementById('bulkActions').style.display = ids.length ? 'flex' : 'none';
+  const cnt = document.getElementById('selectedCount');
+  if (cnt) cnt.textContent = ids.length ? `${ids.length} selected` : '';
+  document.getElementById('selectAll').checked = ids.length === document.querySelectorAll('.file-select').length;
+}
+function toggleSelectAll(cb) {
+  document.querySelectorAll('.file-select').forEach(c => { c.checked = cb.checked; });
+  updateBulk();
 }
 
+// ── Bulk actions ───────────────────────────────────────────────────────────
 async function bulkDelete() {
-    const ids = Array.from(document.querySelectorAll('.file-select:checked')).map(c => parseInt(c.value));
-    if (!confirm(`Delete ${ids.length} file(s)?`)) return;
-    const r = await fetch('{{ url_for("files.bulk_delete") }}', {
-        method:'POST', headers:{'Content-Type':'application/json'},
-        body: JSON.stringify({ids})
-    });
-    if ((await r.json()).ok) { showToast(`${ids.length} files deleted`, 'success'); setTimeout(()=>location.reload(),800); }
+  const ids = getSelectedIds();
+  if (!ids.length) return;
+  if (!confirm(`Delete ${ids.length} file(s)?`)) return;
+  const r = await fetch('/files/bulk-delete', {method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({ids})});
+  if ((await r.json()).ok) { showToast(`${ids.length} files deleted`,'success'); setTimeout(()=>location.reload(),700); }
 }
 
+async function bulkDownload() {
+  const ids = getSelectedIds();
+  if (!ids.length) { showToast('Select files first','error'); return; }
+  showToast(`Preparing ZIP of ${ids.length} files…`,'info');
+  const r = await fetch('/files/bulk-download', {method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({ids})});
+  if (!r.ok) { showToast('Download failed','error'); return; }
+  const blob = await r.blob();
+  const a = document.createElement('a');
+  a.href = URL.createObjectURL(blob);
+  a.download = 'serenia-download.zip';
+  a.click();
+  URL.revokeObjectURL(a.href);
+  showToast('ZIP downloaded!','success');
+}
+
+function openBulkMove() {
+  const ids = getSelectedIds();
+  if (!ids.length) { showToast('Select files first','error'); return; }
+  document.getElementById('bulkMoveModal').classList.add('open');
+}
+function selectBulkDestFolder(id, el) {
+  bulkDestFolderId = id;
+  document.querySelectorAll('#bulkFolderPicker .folder-picker-item').forEach(i=>i.classList.remove('active'));
+  el.classList.add('active');
+}
+async function submitBulkMove() {
+  const ids = getSelectedIds();
+  const r = await fetch('/files/bulk-move',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({ids,folder_id:bulkDestFolderId})});
+  if((await r.json()).ok){showToast(`${ids.length} files moved`,'success');closeModal('bulkMoveModal');setTimeout(()=>location.reload(),700);}
+}
+
+// ── Single file actions ────────────────────────────────────────────────────
 async function deleteFile(id, btn) {
-    if (!confirm('Delete this file?')) return;
-    const r = await fetch(`/files/${id}/delete`, {method:'POST'});
-    if ((await r.json()).ok) {
-        btn.closest('.file-card').remove();
-        showToast('File deleted', 'success');
-    }
+  if (!confirm('Delete this file?')) return;
+  const r = await fetch(`/files/${id}/delete`,{method:'POST'});
+  if((await r.json()).ok){btn.closest('.file-card').remove();showToast('Deleted','success');}
 }
-
 async function toggleFav(id, btn) {
-    const r = await fetch(`/files/${id}/favorite`, {method:'POST'});
-    const data = await r.json();
-    if (data.ok) {
-        btn.querySelector('i').className = `fa-${data.favorited ? 'solid' : 'regular'} fa-star`;
-        btn.classList.toggle('active', data.favorited);
-    }
+  const r = await fetch(`/files/${id}/favorite`,{method:'POST'});
+  const d = await r.json();
+  btn.querySelector('i').className = `fa-${d.favorited?'solid':'regular'} fa-star`;
+  if(d.favorited) btn.classList.add('active'); else btn.classList.remove('active');
 }
-
 function shareFile(id) {
-    currentShareFileId = id;
-    document.getElementById('shareResult').style.display = 'none';
-    document.getElementById('shareModal').classList.add('open');
+  currentShareFileId = id;
+  document.getElementById('shareResult').style.display = 'none';
+  document.getElementById('shareModal').classList.add('open');
+}
+async function submitShare() {
+  const exp = document.getElementById('shareExpiry').value;
+  const dl  = document.getElementById('shareDownload').checked;
+  const r   = await fetch(`/files/${currentShareFileId}/share`,{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({expires_in:exp||null,allow_download:dl})});
+  const d   = await r.json();
+  if(d.ok){document.getElementById('shareLinkInput').value=d.url;document.getElementById('shareQrLink').href=`/share/${d.token}/qr`;document.getElementById('shareResult').style.display='block';}
+}
+function copyShareLink(){navigator.clipboard.writeText(document.getElementById('shareLinkInput').value);showToast('Copied!','success');}
+
+function openMoveFile(id) { currentMoveFileId=id; document.getElementById('moveFileModal').classList.add('open'); }
+function selectDestFolder(id, el) {
+  destFolderId = id;
+  document.querySelectorAll('.folder-picker .folder-picker-item').forEach(i=>i.classList.remove('active'));
+  el.classList.add('active');
+}
+async function submitMove() {
+  const r = await fetch(`/files/${currentMoveFileId}/move`,{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({folder_id:destFolderId})});
+  if((await r.json()).ok){showToast('File moved','success');closeModal('moveFileModal');setTimeout(()=>location.reload(),700);}
 }
 
-document.getElementById('createShareBtn').onclick = async () => {
-    const expires = document.getElementById('shareExpiry').value;
-    const allowDl = document.getElementById('shareDownload').checked;
-    const r = await fetch(`/files/${currentShareFileId}/share`, {
-        method:'POST', headers:{'Content-Type':'application/json'},
-        body: JSON.stringify({expires_in: expires || null, allow_download: allowDl})
-    });
-    const data = await r.json();
-    if (data.ok) {
-        document.getElementById('shareLinkInput').value = data.url;
-        document.getElementById('shareQrLink').href = `/share/${data.token}/qr`;
-        document.getElementById('shareResult').style.display = 'block';
-    }
-};
-
-function copyShareLink() {
-    const input = document.getElementById('shareLinkInput');
-    navigator.clipboard.writeText(input.value);
-    showToast('Link copied!', 'success');
+// ── Folder actions ─────────────────────────────────────────────────────────
+function openCreateFolder() { document.getElementById('folderNameInput').value=''; document.getElementById('createFolderModal').classList.add('open'); }
+function selectSwatch(el) {
+  document.querySelectorAll('.swatch').forEach(s=>s.classList.remove('active'));
+  el.classList.add('active');
+  selectedColor = el.dataset.color;
 }
-
-document.getElementById('viewGrid').onclick = () => {
-    document.getElementById('filesGrid').className = 'files-grid';
-};
-document.getElementById('viewList').onclick = () => {
-    document.getElementById('filesGrid').className = 'files-list-view';
-};
+async function submitCreateFolder() {
+  const name = document.getElementById('folderNameInput').value.trim();
+  if (!name) { showToast('Enter a folder name','error'); return; }
+  const r = await fetch('/folders/create',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({name,color:selectedColor,parent_id:currentFolderId})});
+  if((await r.json()).ok){showToast('Folder created','success');closeModal('createFolderModal');setTimeout(()=>location.reload(),600);}
+}
+async function renameFolder(id, current) {
+  const name = prompt('New folder name:', current);
+  if (!name || name===current) return;
+  const r = await fetch(`/folders/${id}/rename`,{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({name})});
+  if((await r.json()).ok){showToast('Renamed','success');setTimeout(()=>location.reload(),600);}
+}
+async function deleteFolder(id, btn) {
+  if(!confirm('Delete this folder and all its files?'))return;
+  const r = await fetch(`/folders/${id}/delete`,{method:'POST'});
+  if((await r.json()).ok){btn.closest('.folder-card').remove();showToast('Folder deleted','success');}
+}
+async function downloadFolder(id, name) {
+  showToast(`Preparing ${name}.zip…`,'info');
+  window.location = `/folders/${id}/download`;
+}
 </script>
 {% endblock %}

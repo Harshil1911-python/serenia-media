@@ -24,6 +24,7 @@ class User(UserMixin, db.Model):
     last_login = db.Column(db.DateTime, nullable=True)
 
     files = db.relationship('File', backref='owner', lazy='dynamic', cascade='all, delete-orphan')
+    folders = db.relationship('Folder', backref='owner', lazy='dynamic', cascade='all, delete-orphan')
     shares_created = db.relationship('Share', backref='creator', lazy='dynamic', foreign_keys='Share.created_by')
     snippets = db.relationship('TextSnippet', backref='author', lazy='dynamic', cascade='all, delete-orphan')
     activities = db.relationship('Activity', backref='user', lazy='dynamic', cascade='all, delete-orphan')

@@ -881,3 +881,56 @@ textarea { resize: vertical; min-height: 80px; }
 
 /* Responsive vault */
 @media (max-width:768px) { .vault-grid { grid-template-columns:1fr; } }
+
+/* ─── File Manager — Folders ─────────────────────────────────────────────── */
+.folders-section { margin-bottom:1.5rem; }
+.section-label { font-size:0.8125rem; font-weight:600; color:var(--text-muted); text-transform:uppercase; letter-spacing:.05em; margin-bottom:0.75rem; display:flex; align-items:center; gap:0.5rem; }
+.folders-grid { display:grid; grid-template-columns:repeat(auto-fill,minmax(180px,1fr)); gap:0.875rem; }
+.folder-card { background:var(--bg-card); border:1.5px solid var(--border-light); border-radius:var(--radius); overflow:hidden; transition:all var(--transition); position:relative; }
+.folder-card:hover { transform:translateY(-2px); box-shadow:var(--shadow-md); border-color:var(--sky); }
+.folder-card-link { display:flex; flex-direction:column; align-items:center; padding:1.25rem 0.75rem 0.75rem; text-decoration:none; color:var(--text); }
+.folder-icon { font-size:2.5rem; margin-bottom:0.625rem; transition:transform var(--transition); }
+.folder-card:hover .folder-icon { transform:scale(1.1); }
+.folder-name { font-size:0.875rem; font-weight:600; text-align:center; white-space:nowrap; overflow:hidden; text-overflow:ellipsis; width:100%; }
+.folder-meta { font-size:0.725rem; color:var(--text-muted); margin-top:3px; }
+.folder-actions { display:flex; justify-content:center; gap:2px; padding:0.375rem; border-top:1px solid var(--border-light); background:var(--bg); }
+
+/* Breadcrumb */
+.breadcrumb-link { color:var(--sky-deeper); font-family:var(--font-body); font-size:inherit; font-weight:400; }
+.breadcrumb-link:hover { text-decoration:underline; }
+.breadcrumb-sep { margin:0 0.375rem; color:var(--text-muted); font-family:var(--font-body); font-weight:400; }
+
+/* Select bar */
+.select-bar { display:flex; align-items:center; gap:1rem; margin-bottom:0.75rem; padding:0.5rem 0; }
+.bulk-actions { display:flex; align-items:center; }
+
+/* Folder picker */
+.folder-picker { display:flex; flex-direction:column; gap:4px; max-height:280px; overflow-y:auto; }
+.folder-picker-item { display:flex; align-items:center; gap:0.625rem; padding:0.625rem 0.875rem; border-radius:var(--radius-sm); cursor:pointer; font-size:0.875rem; transition:all var(--transition); border:1.5px solid transparent; }
+.folder-picker-item:hover { background:var(--sky-light); color:var(--sky-deeper); }
+.folder-picker-item.active { background:var(--sky-light); border-color:var(--sky); color:var(--sky-deeper); font-weight:600; }
+
+/* Color swatches */
+.color-swatches { display:flex; gap:0.5rem; flex-wrap:wrap; margin-top:0.375rem; }
+.swatch { width:32px; height:32px; border-radius:50%; border:3px solid transparent; cursor:pointer; transition:all var(--transition); }
+.swatch:hover { transform:scale(1.15); }
+.swatch.active { border-color:var(--text); box-shadow:0 0 0 2px white inset; }
+
+/* Upload overall progress */
+.queue-progress-bar { height:4px; background:var(--border); border-radius:2px; overflow:hidden; margin-bottom:1rem; }
+.queue-progress-bar div { height:100%; background:linear-gradient(90deg,var(--sky),var(--sky-dark)); border-radius:2px; transition:width 0.3s ease; }
+
+/* File card folder badge */
+.file-card-folder { font-size:0.7rem; color:var(--text-muted); margin-top:3px; display:flex; align-items:center; gap:3px; }
+
+/* File icon colours in list */
+.file-icon-large.file-image { color:#db2777; }
+.file-icon-large.file-video { color:#7c3aed; }
+.file-icon-large.file-audio { color:#d97706; }
+.file-icon-large.file-document { color:#2563eb; }
+.file-icon-large.file-archive { color:#16a34a; }
+.file-icon-large.file-text { color:#15803d; }
+
+@media (max-width:600px) {
+  .folders-grid { grid-template-columns:repeat(auto-fill,minmax(140px,1fr)); }
+}
